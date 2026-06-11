@@ -8,1206 +8,1322 @@
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,600;0,800;1,600&family=Inter:wght@300;400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap"/>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 <style>
-/* ── RESET & TOKENS ─────────────────────────────── */
-*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
 
-:root {
-  --ink:      #12151c;
-  --ivory:    #f7f4ed;
-  --fog:      rgba(247,244,237,0.08);
-  --gold:     #c9893a;
-  --amber:    #f0b840;
-  --teal:     #2b9a8c;
-  --blue:     #2f5f9e;
-  --plum:     #7e4f82;
-  --warm-grey:#8a7f72;
-  --panel-bg: rgba(18, 21, 28, 0.82);
-  --panel-border: rgba(255,255,255,0.10);
+/* SPECTRUM PALETTE — visible light wavelengths mapped to phases
+   Violet #9B5DE5 · Indigo #5E60CE · Blue #4CC9F0 · Cyan #4ADEDE
+   Green #73D26F · Yellow #F9C74F · Orange #F4873B · Red #E74C3C */
+:root{
+  --ink:#0d1117; --ivory:#f0ece0;
+  --panel:#0d1117cc; --bd:rgba(255,255,255,.08);
+  --c-v:#9B5DE5; --c-i:#5E60CE; --c-b:#4CC9F0; --c-c:#4ADEDE;
+  --c-g:#73D26F; --c-y:#F9C74F; --c-o:#F4873B; --c-r:#E74C3C;
 }
+body{font-family:'Inter',sans-serif;color:var(--ivory);background:var(--ink);overflow-x:hidden}
 
-html { scroll-behavior: smooth; }
+/* MAP */
+#map-bg{position:fixed;inset:0;z-index:0;background:#080c12}
+.leaflet-control-attribution{background:rgba(0,0,0,.55)!important;color:rgba(255,255,255,.3)!important;font-size:9px!important}
+.leaflet-control-attribution a{color:rgba(255,255,255,.4)!important}
 
-body {
-  font-family: 'Inter', sans-serif;
-  color: var(--ivory);
-  background: var(--ink);
-  overflow-x: hidden;
-}
+/* TICKER */
+#ticker{position:fixed;top:13px;left:50%;transform:translateX(-50%);z-index:300;
+  background:rgba(13,17,23,.9);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);
+  border:1px solid var(--bd);border-radius:100px;padding:5px 15px 5px 9px;
+  display:flex;align-items:center;gap:8px;font-size:.75rem;pointer-events:none;
+  opacity:0;transition:opacity .4s;white-space:nowrap;max-width:92vw;overflow:hidden}
+#ticker.on{opacity:1}
+#t-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0;transition:background .3s}
+#t-yr{font-family:'IBM Plex Mono',monospace;font-size:.68rem;letter-spacing:.08em;transition:color .3s}
+#t-pl{color:rgba(240,236,224,.8);font-weight:500}
 
-/* ── MAP — full-screen sticky background ────────── */
-#map-bg {
-  position: fixed;
-  inset: 0;
-  z-index: 0;
-  background: #0e1520;
-}
+/* HERO */
+#hero{position:relative;z-index:10;min-height:100vh;
+  display:flex;flex-direction:column;justify-content:flex-end;padding:0 0 5vh;
+  background:linear-gradient(to bottom,rgba(8,12,18,.78)0%,rgba(8,12,18,.18)45%,transparent 65%,rgba(8,12,18,.55)85%,rgba(8,12,18,.96)100%)}
+.hero-inner{max-width:640px;margin:0 auto;padding:0 22px;text-align:center}
+.hero-eye{font-family:'IBM Plex Mono',monospace;font-size:.65rem;letter-spacing:.28em;text-transform:uppercase;color:var(--c-y);margin-bottom:.9rem}
+.hero h1{font-family:'Playfair Display',serif;font-size:clamp(2.8rem,8vw,5.4rem);line-height:1;font-weight:800;margin-bottom:1rem}
+.hero h1 em{font-style:italic;color:var(--c-y)}
+.hero-sub{font-size:clamp(.9rem,2vw,1.06rem);font-weight:300;color:rgba(240,236,224,.62);line-height:1.7;max-width:490px;margin:0 auto 1.8rem}
+.hero-stats{display:flex;flex-wrap:wrap;justify-content:center;gap:.55rem 1.3rem}
+.hstat strong{display:block;font-family:'Playfair Display',serif;font-size:1.5rem;font-weight:800;color:var(--c-y);line-height:1}
+.hstat span{font-size:.66rem;font-family:'IBM Plex Mono',monospace;letter-spacing:.08em;text-transform:uppercase;color:rgba(240,236,224,.38)}
+.scroll-cue{margin-top:2rem;display:flex;flex-direction:column;align-items:center;gap:.32rem;color:rgba(240,236,224,.28);font-size:.68rem;letter-spacing:.12em;text-transform:uppercase;animation:bounce 2.4s ease-in-out infinite}
+@keyframes bounce{0%,100%{transform:translateY(0)}50%{transform:translateY(7px)}}
+.scroll-cue svg{opacity:.4}
 
-/* Leaflet attribution styling */
-.leaflet-control-attribution {
-  background: rgba(0,0,0,0.5) !important;
-  color: rgba(255,255,255,0.5) !important;
-  font-size: 9px !important;
-}
-.leaflet-control-attribution a { color: rgba(255,255,255,0.6) !important; }
+/* SCROLL BODY */
+#scroll-body{position:relative;z-index:10}
 
-/* ── HERO OVERLAY ───────────────────────────────── */
-#hero {
-  position: relative;
-  z-index: 10;
-  min-height: 100vh;
-  display: flex;
-  flex-direction: column;
-  justify-content: flex-end;
-  padding: 0 0 5vh;
-  background: linear-gradient(to bottom, rgba(12,15,22,0.7) 0%, rgba(12,15,22,0.3) 40%, rgba(12,15,22,0.0) 65%, rgba(12,15,22,0.5) 85%, rgba(12,15,22,0.9) 100%);
-}
+/* CHAPTER DIVIDER */
+.ch-div{min-height:48vh;display:flex;align-items:center;justify-content:center;padding:2.5rem 20px}
+.ch-block{text-align:center;background:rgba(13,17,23,.92);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);
+  border:1px solid var(--bd);border-radius:4px;padding:2rem 2.6rem;max-width:500px;width:100%}
+.ch-label{font-family:'IBM Plex Mono',monospace;font-size:.62rem;letter-spacing:.25em;text-transform:uppercase;margin-bottom:.6rem}
+.ch-block h2{font-family:'Playfair Display',serif;font-size:clamp(1.35rem,3.2vw,2.1rem);font-weight:800;line-height:1.1;margin-bottom:.6rem;color:var(--ivory)}
+.ch-block p{font-size:.84rem;color:rgba(240,236,224,.5);line-height:1.62}
 
-.hero-inner {
-  max-width: 680px;
-  margin: 0 auto;
-  padding: 0 24px;
-  text-align: center;
-}
+/* STOP STEP */
+.stop-step{min-height:88vh;display:flex;align-items:center;padding:1.5rem 0}
+.stop-step:nth-child(odd)  .card{margin-left:clamp(14px,5vw,90px);margin-right:auto}
+.stop-step:nth-child(even) .card{margin-right:clamp(14px,5vw,90px);margin-left:auto}
 
-.hero-eyebrow {
-  font-family: 'IBM Plex Mono', monospace;
-  font-size: 0.68rem;
-  letter-spacing: 0.28em;
-  text-transform: uppercase;
-  color: var(--amber);
-  margin-bottom: 1rem;
-}
+.card{background:var(--panel);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);
+  border:1px solid var(--bd);border-radius:10px;padding:19px 23px;max-width:385px;width:calc(100% - 26px);
+  box-shadow:0 14px 46px rgba(0,0,0,.44);transition:border-color .3s,box-shadow .3s}
+.card.active{border-color:rgba(255,255,255,.17);box-shadow:0 18px 55px rgba(0,0,0,.54),0 0 0 1px rgba(249,199,79,.15)}
 
-.hero h1 {
-  font-family: 'Playfair Display', serif;
-  font-size: clamp(2.8rem, 8vw, 5.5rem);
-  line-height: 1.0;
-  font-weight: 800;
-  letter-spacing: -0.01em;
-  margin-bottom: 1.1rem;
-}
+/* TAG */
+.tag{display:inline-flex;align-items:center;gap:5px;font-family:'IBM Plex Mono',monospace;font-size:.6rem;letter-spacing:.15em;text-transform:uppercase;padding:2px 8px;border-radius:100px;margin-bottom:7px}
+.tag .td{width:5px;height:5px;border-radius:50%;flex-shrink:0}
 
-.hero h1 em { font-style: italic; color: var(--amber); }
+.stop-yr{font-family:'IBM Plex Mono',monospace;font-size:.68rem;letter-spacing:.08em;color:rgba(240,236,224,.32);margin-bottom:3px}
+.card h2{font-family:'Playfair Display',serif;font-size:clamp(1.1rem,2.4vw,1.45rem);font-weight:800;line-height:1.14;margin-bottom:8px;color:var(--ivory)}
+.card h2 .pn{display:block;font-size:.78em;font-style:italic;font-weight:600;margin-bottom:2px}
+.card p{font-size:.84rem;line-height:1.68;color:rgba(240,236,224,.64);margin-bottom:6px}
+.card p:last-child{margin-bottom:0}
+.card p strong{color:var(--ivory);font-weight:600}
 
-.hero-lede {
-  font-size: clamp(0.95rem, 2vw, 1.1rem);
-  font-weight: 300;
-  color: rgba(247,244,237,0.72);
-  line-height: 1.7;
-  max-width: 520px;
-  margin: 0 auto 2rem;
-}
+/* READ-MORE */
+.rm-btn{margin-top:9px;font-size:.71rem;font-family:'IBM Plex Mono',monospace;letter-spacing:.07em;text-transform:uppercase;cursor:pointer;display:inline-flex;align-items:center;gap:5px;border:none;background:none;color:var(--ivory);padding:3px 0;opacity:.42;transition:opacity .2s}
+.rm-btn:hover{opacity:.85}
+.rm-btn svg{transition:transform .22s}
+.rm-btn.open svg{transform:rotate(180deg)}
+.rm-body{display:none;margin-top:8px;border-top:1px solid rgba(255,255,255,.07);padding-top:9px}
+.rm-body.open{display:block}
+.rm-body p{font-size:.8rem;color:rgba(240,236,224,.52);margin-bottom:6px}
+.rm-body p:last-child{margin-bottom:0}
+.lp-chips{display:flex;flex-wrap:wrap;gap:4px;margin:7px 0 3px}
+.lp{font-family:'IBM Plex Mono',monospace;font-size:.62rem;letter-spacing:.05em;padding:2px 7px;border-radius:3px;border:1px solid rgba(255,255,255,.1);color:rgba(240,236,224,.54)}
 
-.hero-stats {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  gap: 0.75rem 1.5rem;
-}
+/* QUOTE BREAK */
+.q-break{position:relative;z-index:10;padding:3.5rem 20px;text-align:center;background:rgba(13,17,23,.93);border-top:1px solid var(--bd);border-bottom:1px solid var(--bd)}
+.q-break blockquote{font-family:'Playfair Display',serif;font-size:clamp(1.05rem,2.3vw,1.5rem);font-style:italic;font-weight:600;max-width:650px;margin:0 auto .75rem;line-height:1.45;color:var(--ivory)}
+.q-break cite{font-family:'IBM Plex Mono',monospace;font-size:.68rem;letter-spacing:.12em;text-transform:uppercase;color:rgba(240,236,224,.38)}
 
-.hstat {
-  text-align: center;
-}
-.hstat strong {
-  display: block;
-  font-family: 'Playfair Display', serif;
-  font-size: 1.6rem;
-  font-weight: 800;
-  color: var(--amber);
-  line-height: 1;
-}
-.hstat span {
-  font-size: 0.72rem;
-  font-family: 'IBM Plex Mono', monospace;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: rgba(247,244,237,0.5);
-}
+/* IMAGE PLACEHOLDERS in read-more */
+.img-ph{width:100%;height:90px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:6px;display:flex;align-items:center;justify-content:center;margin:8px 0;overflow:hidden;position:relative}
+.img-ph::before{content:attr(data-caption);position:absolute;bottom:5px;left:8px;right:8px;font-size:.65rem;font-family:'IBM Plex Mono',monospace;color:rgba(240,236,224,.38);text-align:center}
+.img-ph svg{opacity:.2}
 
-.scroll-cue {
-  margin-top: 2.5rem;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 0.4rem;
-  color: rgba(247,244,237,0.35);
-  font-size: 0.72rem;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  animation: cue-bounce 2.4s ease-in-out infinite;
-}
-@keyframes cue-bounce {
-  0%,100%{ transform:translateY(0); }
-  50%{ transform:translateY(7px); }
-}
-.scroll-cue svg { opacity:.5; }
 
-/* ── SCROLL BODY ────────────────────────────────── */
-#scroll-body {
-  position: relative;
-  z-index: 10;
-}
 
-/* ── LOCATION TICKER ────────────────────────────── */
-#location-ticker {
-  position: fixed;
-  top: 18px;
-  left: 50%;
-  transform: translateX(-50%);
-  z-index: 200;
-  background: rgba(18,21,28,0.78);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border: 1px solid var(--panel-border);
-  border-radius: 100px;
-  padding: 7px 18px 7px 12px;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  font-size: 0.78rem;
-  pointer-events: none;
-  transition: opacity 0.4s;
-  opacity: 0;
-  white-space: nowrap;
-  max-width: 90vw;
-  overflow: hidden;
-  text-overflow: ellipsis;
+
+
+
+
+
+/* TIMELINE FOOTER - VISIBLE */
+#timeline-wrap{
+  position:fixed;
+  bottom:0;
+  left:50%;
+  transform:translateX(-50%);
+  width:75vw;
+  max-width:800px;
+  z-index:200;
+  padding:14px 0 20px;
+  background:linear-gradient(to top, rgba(13,17,23,.98) 0%, rgba(13,17,23,.92) 60%, transparent 100%);
+  backdrop-filter:blur(20px);
+  -webkit-backdrop-filter:blur(20px);
+  border-top:1px solid rgba(255,255,255,.06);
 }
-#location-ticker.visible { opacity: 1; }
-#ticker-dot {
-  width: 8px; height: 8px;
-  border-radius: 50%;
-  background: var(--amber);
-  flex-shrink: 0;
-  transition: background 0.3s;
-}
-#ticker-year {
-  font-family: 'IBM Plex Mono', monospace;
-  color: var(--amber);
-  font-size: 0.72rem;
-  letter-spacing: 0.08em;
-}
-#ticker-place {
-  color: rgba(247,244,237,0.85);
-  font-weight: 500;
+.timeline-container{margin:0 auto;padding:0 20px}
+
+#timeline-track{position:relative;height:6px;background:linear-gradient(90deg, var(--c-v) 0%, var(--c-i) 15%, var(--c-b) 25%, var(--c-c) 33%, var(--c-g) 41%, var(--c-y) 49%, var(--c-o) 100%);border-radius:100px;cursor:pointer;margin:22px 0 24px}
+
+#timeline-handle{position:absolute;top:50%;transform:translate(-50%,-50%);width:20px;height:20px;background:var(--c-y);border:3px solid var(--ink);border-radius:50%;box-shadow:0 0 0 5px rgba(249,199,79,.2),0 3px 10px rgba(0,0,0,.5);cursor:grab;z-index:10;transition:transform .1s}
+#timeline-handle:active{cursor:grabbing;transform:translate(-50%,-50%) scale(1.1)}
+
+.world-event{position:absolute;top:50%;transform:translate(-50%,-50%);width:7px;height:7px;background:#E74C3C;border-radius:50%;cursor:pointer;z-index:5}
+.world-event::before{content:'';position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:14px;height:14px;background:rgba(231,76,60,.2);border-radius:50%;opacity:0;transition:opacity .2s}
+.world-event:hover::before{opacity:1}
+
+/* Raman events - yellow diamonds with horizontal tooltips */
+.raman-event{position:absolute;top:50%;transform:translate(-50%,-50%);width:8px;height:8px;cursor:pointer;z-index:5}
+.raman-event::after{content:'';position:absolute;top:0;left:0;width:8px;height:8px;background:var(--c-y);transform:rotate(45deg);box-shadow:0 0 0 1px var(--ink)}
+.raman-event::before{content:'';position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:16px;height:16px;background:rgba(249,199,79,.15);opacity:0;transition:opacity .2s;border-radius:50%}
+.raman-event:hover::before{opacity:1}
+
+.timeline-tooltip{position:absolute;bottom:32px;transform:translateX(-50%);background:rgba(13,17,23,.96);backdrop-filter:blur(16px);border:1px solid var(--bd);border-radius:8px;padding:5px 9px;font-size:.68rem;white-space:nowrap;opacity:0;pointer-events:none;transition:opacity .2s;z-index:20}
+.timeline-tooltip::after{content:'';position:absolute;top:100%;left:50%;transform:translateX(-50%);border:5px solid transparent;border-top-color:rgba(13,17,23,.96)}
+.world-event:hover .timeline-tooltip, .raman-event:hover .timeline-tooltip{opacity:1}
+
+.timeline-year{position:absolute;top:-28px;transform:translateX(-50%);font-family:'IBM Plex Mono',monospace;font-size:.62rem;color:rgba(240,236,224,.5);letter-spacing:.05em;pointer-events:none}
+.timeline-year.major{color:rgba(240,236,224,.7);font-weight:500}
+
+#timeline-chapters{position:relative;height:24px}
+.chapter-block{position:absolute;height:22px;border-radius:5px;display:flex;align-items:center;justify-content:center;font-size:.65rem;font-weight:600;color:var(--ink);padding:0 6px;opacity:.85;transition:opacity .2s;cursor:pointer}
+.chapter-block:hover{opacity:1}
+.chapter-block.active{opacity:1;box-shadow:0 0 0 2px rgba(255,255,255,.3)}
+
+#timeline-content{position:fixed;bottom:130px;left:50%;transform:translateX(-50%);width:90vw;max-width:620px;z-index:199;pointer-events:none}
+#timeline-text{background:rgba(13,17,23,.94);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);border:1px solid var(--bd);border-radius:12px;padding:14px 18px;font-size:.85rem;line-height:1.6;color:rgba(240,236,224,.9);opacity:0;transform:translateY(8px);transition:opacity .3s, transform .3s}
+#timeline-text.show{opacity:1;transform:translateY(0)}
+#timeline-text .era{font-family:'Playfair Display',serif;font-size:1.05rem;color:var(--c-y);margin-bottom:5px;display:block}
+#timeline-text .world{color:rgba(249,199,79,.75);font-size:.78rem;margin-top:7px;padding-top:7px;border-top:1px solid rgba(255,255,255,.06)}
+
+#hero{padding:0 0 8vh !important;margin-top:-3vh;position:relative;z-index:15}
+.hero-inner{transform:translateY(-20px);position:relative;z-index:16}
+.hero h1, .hero-sub, .hero-eye{
+  text-shadow:0 2px 12px rgba(0,0,0,.8), 0 0 40px rgba(0,0,0,.5);
+  position:relative;
+  z-index:17;
 }
 
-/* ── CHAPTER SECTION ────────────────────────────── */
-.chapter {
-  padding: 2vh 0;
+/* KEEP CITY MARKERS but make them light and behind text */
+.leaflet-marker-icon,
+.leaflet-marker-shadow,
+.city-marker,
+.marker-cluster{
+  opacity:0.45 !important;
+  filter:saturate(0.5) brightness(2.1);
+  z-index:1 !important;
 }
-
-/* Each stop is one scroll step */
-.stop-step {
-  min-height: 90vh;
-  display: flex;
-  align-items: center;
-  padding: 2rem 0;
-}
-
-/* Alternate card sides for visual rhythm */
-.stop-step:nth-child(odd)  .stop-card { margin-left: clamp(16px, 6vw, 120px); margin-right: auto; }
-.stop-step:nth-child(even) .stop-card { margin-right: clamp(16px, 6vw, 120px); margin-left: auto; }
-
-.stop-card {
-  background: var(--panel-bg);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  border: 1px solid var(--panel-border);
-  border-radius: 12px;
-  padding: 24px 28px;
-  max-width: 400px;
-  width: calc(100% - 32px);
-  box-shadow: 0 20px 60px rgba(0,0,0,0.45);
-  transition: box-shadow 0.35s;
-}
-
-.stop-card.active {
-  border-color: rgba(255,255,255,0.22);
-  box-shadow: 0 24px 70px rgba(0,0,0,0.55), 0 0 0 1px rgba(200,147,42,0.25);
-}
-
-.stop-tag {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  font-family: 'IBM Plex Mono', monospace;
-  font-size: 0.66rem;
-  letter-spacing: 0.18em;
-  text-transform: uppercase;
-  padding: 3px 9px;
-  border-radius: 100px;
-  margin-bottom: 10px;
-}
-.stop-tag .tag-dot { width:6px;height:6px;border-radius:50%;flex-shrink:0; }
-
-.tag-childhood  { background: rgba(180,95,42,0.22); color: #e8945a; }
-.tag-childhood  .tag-dot { background: #e8945a; }
-.tag-government { background: rgba(43,154,140,0.2);  color: #52cfc0; }
-.tag-government .tag-dot { background: #52cfc0; }
-.tag-voyage     { background: rgba(47,95,158,0.22); color: #7aafed; }
-.tag-voyage     .tag-dot { background: #7aafed; }
-.tag-honour     { background: rgba(126,79,130,0.22); color: #c98fcf; }
-.tag-honour     .tag-dot { background: #c98fcf; }
-.tag-legacy     { background: rgba(200,147,42,0.2); color: var(--amber); }
-.tag-legacy     .tag-dot { background: var(--amber); }
-
-.stop-year {
-  font-family: 'IBM Plex Mono', monospace;
-  font-size: 0.72rem;
-  letter-spacing: 0.1em;
-  color: rgba(247,244,237,0.38);
-  margin-bottom: 4px;
-}
-
-.stop-card h2 {
-  font-family: 'Playfair Display', serif;
-  font-size: clamp(1.25rem, 2.8vw, 1.65rem);
-  font-weight: 800;
-  line-height: 1.15;
-  margin-bottom: 10px;
-  color: var(--ivory);
-}
-
-.stop-card h2 .place-name {
-  display: block;
-  font-size: 0.8em;
-  font-style: italic;
-  color: var(--amber);
-  font-weight: 600;
-  margin-bottom: 2px;
-}
-
-.stop-card p {
-  font-size: 0.88rem;
-  line-height: 1.7;
-  color: rgba(247,244,237,0.72);
-  margin-bottom: 8px;
-}
-.stop-card p:last-child { margin-bottom: 0; }
-
-.stop-card p strong { color: var(--ivory); font-weight: 600; }
-
-/* ── CHAPTER DIVIDER ────────────────────────────── */
-.chapter-divider {
-  min-height: 50vh;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 3rem 24px;
-}
-
-.chapter-title-block {
-  text-align: center;
-  background: rgba(18,21,28,0.88);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  border: 1px solid var(--panel-border);
-  border-radius: 4px;
-  padding: 2.5rem 3rem;
-  max-width: 540px;
-  width: 100%;
-}
-
-.chapter-label {
-  font-family: 'IBM Plex Mono', monospace;
-  font-size: 0.66rem;
-  letter-spacing: 0.28em;
-  text-transform: uppercase;
-  color: var(--amber);
-  margin-bottom: 0.7rem;
-}
-
-.chapter-title-block h2 {
-  font-family: 'Playfair Display', serif;
-  font-size: clamp(1.5rem, 4vw, 2.4rem);
-  font-weight: 800;
-  line-height: 1.1;
-  margin-bottom: 0.7rem;
-  color: var(--ivory);
-}
-
-.chapter-title-block p {
-  font-size: 0.88rem;
-  color: rgba(247,244,237,0.58);
-  line-height: 1.65;
-}
-
-/* ── TIMELINE STRIP (bottom fixed) ─────────────── */
-#timeline-strip {
-  position: fixed;
-  bottom: 0;
-  left: 0; right: 0;
-  z-index: 200;
-  background: rgba(12,15,22,0.88);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  border-top: 1px solid var(--panel-border);
-  padding: 10px 24px 12px;
-  transition: transform 0.4s;
-}
-#timeline-strip.hidden { transform: translateY(100%); }
-
-#tl-svg-wrap { width: 100%; overflow: hidden; }
-#tl-svg {
-  width: 100%;
-  height: 56px;
-  display: block;
-}
-
-/* ── FOOTER ─────────────────────────────────────── */
-#end-section {
-  position: relative;
-  z-index: 10;
-  background: rgba(12,15,22,0.95);
-  border-top: 1px solid var(--panel-border);
-  padding: 3rem 24px 4rem;
-  text-align: center;
-}
-
-.end-quote {
-  font-family: 'Playfair Display', serif;
-  font-size: clamp(1.1rem, 2.5vw, 1.6rem);
-  font-style: italic;
-  font-weight: 600;
-  max-width: 640px;
-  margin: 0 auto 1rem;
-  line-height: 1.45;
-  color: var(--ivory);
-}
-.end-cite {
-  font-family: 'IBM Plex Mono', monospace;
-  font-size: 0.72rem;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: rgba(247,244,237,0.4);
-}
-
-.end-footer {
-  margin-top: 2.5rem;
-  font-size: 0.78rem;
-  color: rgba(247,244,237,0.3);
-  line-height: 1.7;
-}
-.end-footer a { color: rgba(247,244,237,0.5); }
-
-/* ── RESPONSIVE ─────────────────────────────────── */
-@media (max-width: 600px) {
-  .stop-step:nth-child(odd)  .stop-card,
-  .stop-step:nth-child(even) .stop-card {
-    margin: 0 auto;
-  }
-  .stop-card { padding: 18px 20px; }
-  .chapter-title-block { padding: 1.8rem 1.5rem; }
-  #timeline-strip { padding: 8px 12px 10px; }
-}
-
-/* ── LEAFLET CUSTOM MARKERS ─────────────────────── */
-.cv-marker {
-  width: 28px; height: 28px;
-  border-radius: 50%;
-  border: 2.5px solid rgba(255,255,255,0.9);
-  display: flex; align-items: center; justify-content: center;
-  font-family: 'IBM Plex Mono', monospace;
-  font-size: 9px;
-  font-weight: 600;
-  color: #fff;
-  cursor: default;
-  transition: transform 0.3s;
-  box-shadow: 0 3px 12px rgba(0,0,0,0.55);
-}
-
-.cv-marker-active {
-  transform: scale(1.35);
-  box-shadow: 0 0 0 5px rgba(240,184,64,0.35), 0 6px 18px rgba(0,0,0,0.6);
-  border-color: var(--amber) !important;
-  z-index: 9999 !important;
-}
-
-.leaflet-popup-content-wrapper {
-  background: rgba(18,21,28,0.92) !important;
-  backdrop-filter: blur(10px);
-  border: 1px solid rgba(255,255,255,0.12) !important;
-  border-radius: 8px !important;
-  box-shadow: 0 12px 40px rgba(0,0,0,0.6) !important;
-  color: var(--ivory) !important;
-}
-.leaflet-popup-tip { background: rgba(18,21,28,0.92) !important; }
-.leaflet-popup-content { font-size: 13px; line-height: 1.55; }
-.leaflet-popup-content strong { color: var(--amber); display: block; margin-bottom:3px; }
+#map-bg{z-index:0}
 </style>
 </head>
 <body>
 
-<!-- Full-screen sticky map -->
 <div id="map-bg"></div>
+<div id="ticker"><div id="t-dot"></div><span id="t-yr">1888</span><span id="t-pl">Tiruvanaikkaval</span></div>
 
-<!-- Location ticker (top bar) -->
-<div id="location-ticker">
-  <div id="ticker-dot"></div>
-  <span id="ticker-year">1888</span>
-  <span id="ticker-place">Tiruvanaikkaval, Tamil Nadu</span>
-</div>
-
-<!-- ── HERO ─────────────────────────────────────── -->
+<!-- HERO -->
 <div id="hero">
   <div class="hero-inner">
-    <p class="hero-eyebrow">A scrollytelling journey · 1888 – 1970</p>
+    <p class="hero-eye">A scrollytelling journey · 1888 – 1970</p>
     <h1>Light in <em>Motion</em></h1>
-    <p class="hero-lede">Every place C.V. Raman lived, studied, worked, or passed through on his way from a Tamil village to the Nobel podium — told through the map beneath your feet.</p>
+    <p class="hero-sub">Every place C.V. Raman lived, worked, or passed through on his way from a Tamil village to the Nobel podium — told through the map beneath your feet.</p>
     <div class="hero-stats">
       <div class="hstat"><strong>4</strong><span>Continents</span></div>
       <div class="hstat"><strong>25+</strong><span>Cities</span></div>
       <div class="hstat"><strong>1930</strong><span>Nobel Prize</span></div>
       <div class="hstat"><strong>82</strong><span>Years of life</span></div>
     </div>
-    <div class="scroll-cue">
-      <span>Scroll to travel</span>
-      <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
-        <path d="M9 3v12M4 10l5 5 5-5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
-      </svg>
+    <div class="scroll-cue"><span>Scroll to travel</span>
+      <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><path d="M9 3v12M4 10l5 5 5-5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
     </div>
   </div>
 </div>
 
-<!-- ── SCROLL BODY ────────────────────────────────── -->
 <div id="scroll-body">
 
-  <!-- ═══════════════════════════════════════════
-       CHAPTER 1 — CHILDHOOD
-  ════════════════════════════════════════════ -->
-  <div class="chapter-divider">
-    <div class="chapter-title-block">
-      <p class="chapter-label">1888 – 1903</p>
-      <h2>Roots: Tamil Nadu & the Andhra Coast</h2>
-      <p>Long before laboratory benches and ocean voyages, C.V. Raman's scientific eye was shaped by a grandmother's puja lamps, a father's violin, and the iridescent shells on a sea-coast beach.</p>
+<!-- ══ CH1 CHILDHOOD ══ -->
+<div class="ch-div">
+  <div class="ch-block">
+    <p class="ch-label" style="color:var(--c-v)">Chapter I · 1888 – 1902</p>
+    <h2>Roots: Tamil Nadu &amp; the Andhra Coast</h2>
+    <p>Long before laboratory benches, Raman's eye was shaped by a grandmother's puja lamps, his father's violin, and iridescent shells on a Vizag beach.</p>
+  </div>
+</div>
+
+<div id="ch-childhood">
+
+<div class="stop-step" data-lat="10.8526" data-lng="78.7053" data-zoom="13" data-place="Tiruvanaikkaval, Trichy" data-year="1888" data-color="#9B5DE5" data-transit="init"
+     data-subs='[{"lat":10.855,"lng":78.705,"label":"Jambukeswarar Temple (birth site nearby)"},{"lat":10.847,"lng":78.702,"label":"Parental home — Parvathi'\''s family house"}]'>
+  <div class="card">
+    <div class="tag" style="background:rgba(155,93,229,.16);color:var(--c-v)"><div class="td" style="background:var(--c-v)"></div>Birth</div>
+    <p class="stop-yr">7 November 1888</p>
+    <h2><span class="pn" style="color:var(--c-v)">Tiruvanaikkaval, near Trichy</span>First breath</h2>
+    <p>Raman is born at his mother Parvathi's parental home near the great <strong>Jambukeswarar temple</strong>. His father teaches at SPG College on ten rupees a month.</p>
+    <button class="rm-btn" aria-expanded="false">Read more <svg width="11" height="11" viewBox="0 0 12 12" fill="none"><path d="M2 4l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></button>
+    <div class="rm-body">
+      <p>Both Parvathi's confinements were at this house near the Kaveri river. The Tamil calendar records the exact moment: Sarvadhari year, twenty-fourth day of Aippasi, twenty-seven naligais of Wednesday, second padam of Purada, Tulam lagnam. Family ancestry runs back to Vaigalathur near Thanjavur.</p>
+      <div class="lp-chips"><span class="lp">Jambukeswarar Temple</span><span class="lp">Kaveri riverbank</span><span class="lp">SPG College, Trichinopoly</span></div>
     </div>
   </div>
+</div>
 
-  <div class="chapter" id="ch-childhood">
-
-    <div class="stop-step" data-lat="10.8526" data-lng="78.7053" data-zoom="7"
-         data-place="Tiruvanaikkaval, Trichy" data-year="1888" data-color="#b45f2a">
-      <div class="stop-card">
-        <div class="stop-tag tag-childhood"><div class="tag-dot"></div>Childhood</div>
-        <p class="stop-year">7 November 1888</p>
-        <h2><span class="place-name">Tiruvanaikkaval, Trichy</span>Birth</h2>
-        <p>Chandrasekhara Venkata Raman is born at his mother Parvathi's parental home near the great Jambukeswarar temple. His father, Chandrasekhara Aiyar, is a student-teacher at SPG College earning <strong>ten rupees a month</strong> — a copper spoon, not silver, as Raman would later joke.</p>
-        <p>The family ancestry reaches back to Vaigalathur near Thanjavur. The boy born here will one day stand before a Swedish king.</p>
-      </div>
-    </div>
-
-    <div class="stop-step" data-lat="10.9575" data-lng="79.3293" data-zoom="7"
-         data-place="Swamimalai, near Kumbakonam" data-year="1897" data-color="#b45f2a">
-      <div class="stop-card">
-        <div class="stop-tag tag-childhood"><div class="tag-dot"></div>Childhood</div>
-        <p class="stop-year">1897</p>
-        <h2><span class="place-name">Swamimalai, near Kumbakonam</span>The upanayanam journey</h2>
-        <p>Nine-year-old Raman and his elder brother CS travel to the <strong>Subrahmanya temple at Swamimalai</strong> — the family's sacred shrine — to perform the upanayanam ceremony. Carrying the paal-kaavadi through the town, the initiation cost 500 rupees — six months of their father's salary.</p>
-        <p>Raman's grandfather had walked to this temple regularly from the villages of Mangudi and Porasakudi, tending his land and his faith.</p>
-      </div>
-    </div>
-
-    <div class="stop-step" data-lat="17.6868" data-lng="83.2185" data-zoom="6"
-         data-place="Visakhapatnam (Waltair)" data-year="1892" data-color="#b45f2a">
-      <div class="stop-card">
-        <div class="stop-tag tag-childhood"><div class="tag-dot"></div>Childhood</div>
-        <p class="stop-year">1892 – 1902</p>
-        <h2><span class="place-name">Visakhapatnam (Waltair)</span>Schoolboy by the sea</h2>
-        <p>Chandrasekhara Aiyar joins <strong>Mrs. A.V.N. College</strong> and moves the family to Waltair — the British quarter of Vizagapatam — after a journey of more than two weeks by train, construction trains, canal boats, and bullock carts. Raman grows up here, always the youngest and best in his class.</p>
-        <p>His father takes the boys to <strong>Dolphin's Nose</strong> and the <strong>Borra Caves</strong> for lessons in physiography. Raman falls in love with seashells, their colours of calcium carbonate stacked into iridescent layers, and soap-bubble surface tension. He matriculates at twelve.</p>
-      </div>
-    </div>
-
-    <div class="stop-step" data-lat="13.0605" data-lng="80.2743" data-zoom="9"
-         data-place="Madras — Presidency College" data-year="1903" data-color="#b45f2a">
-      <div class="stop-card">
-        <div class="stop-tag tag-childhood"><div class="tag-dot"></div>Education</div>
-        <p class="stop-year">1903 – 1907</p>
-        <h2><span class="place-name">Madras — Presidency College</span>Fourteen, and already beyond the syllabus</h2>
-        <p>Raman arrives at Presidency College at fourteen. Professor Elliott assumes the slight boy has walked into the wrong classroom. He hasn't. He wins gold medals in physics and English and earns his MSc by 1907. Professor R. Llewellyn Jones grants him carte blanche to work in the lab any hour he likes.</p>
-        <p>He walks the Triplicane beach at dawn, browses <strong>Moore Market</strong> for second-hand scientific journals, and reads everything in the <strong>Connemara Library</strong>. His first paper in the Philosophical Magazine is published when he is still an undergraduate. The civil surgeon bars him from England — a verdict Raman will later call the greatest favour of his life.</p>
-      </div>
-    </div>
-
-  </div><!-- /ch-childhood -->
-
-  <!-- ═══════════════════════════════════════════
-       CHAPTER 2 — GOVERNMENT SERVICE
-  ════════════════════════════════════════════ -->
-  <div class="chapter-divider">
-    <div class="chapter-title-block">
-      <p class="chapter-label">1907 – 1917</p>
-      <h2>The Civil Servant Who Kept a Laboratory</h2>
-      <p>Government postings moved Raman across India. Each city became an unofficial research station — a room upstairs, an improvised bench, and a question that couldn't wait until morning.</p>
+<div class="stop-step" data-lat="10.957" data-lng="79.329" data-zoom="13" data-place="Swamimalai, near Kumbakonam" data-year="1897" data-color="#9B5DE5" data-transit="local"
+     data-subs='[{"lat":10.9596,"lng":79.3309,"label":"Subrahmanya Temple — upanayanam ceremony"}]'>
+  <div class="card">
+    <div class="tag" style="background:rgba(155,93,229,.16);color:var(--c-v)"><div class="td" style="background:var(--c-v)"></div>Childhood</div>
+    <p class="stop-yr">1897</p>
+    <h2><span class="pn" style="color:var(--c-v)">Swamimalai, near Kumbakonam</span>The paal-kaavadi journey</h2>
+    <p>Nine-year-old Raman and brother CS carry the <strong>paal-kaavadi</strong> to the Subrahmanya temple for their upanayanam — a ceremony costing 500 rupees, six months of their father's salary.</p>
+    <button class="rm-btn" aria-expanded="false">Read more <svg width="11" height="11" viewBox="0 0 12 12" fill="none"><path d="M2 4l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></button>
+    <div class="rm-body">
+      <p>The kaavadi is a wooden bar on the shoulder with pots of milk on each side, brass bells announcing the bearer. Raman's grandfather had walked to this temple from Mangudi and Porasakudi regularly. Though Chandrasekhara Aiyar had become an agnostic student in Madras, the ceremony was arranged. Raman later laughed: "Six months' salary to have us carry that paal-kaavadi, whew!"</p>
+      <div class="lp-chips"><span class="lp">Subrahmanya Temple, Swamimalai hill</span></div>
     </div>
   </div>
+</div>
 
-  <div class="chapter" id="ch-government">
-
-    <div class="stop-step" data-lat="22.5726" data-lng="88.3639" data-zoom="7"
-         data-place="Calcutta — IACS" data-year="1907" data-color="#287267">
-      <div class="stop-card">
-        <div class="stop-tag tag-government"><div class="tag-dot"></div>Government Service</div>
-        <p class="stop-year">1907 – 1909</p>
-        <h2><span class="place-name">Calcutta (Kolkata)</span>A civil servant finds his laboratory</h2>
-        <p>Raman joins the <strong>Indian Finance Service</strong> as Assistant Accountant General. Within weeks he discovers the <strong>Indian Association for the Cultivation of Science (IACS)</strong> in Bowbazar — a neglected but fully equipped laboratory. He works in the office from ten to five; the rest of his waking hours belong to science.</p>
-        <p>He studies the acoustics of the mridangam and tabla, the physics of bowed strings, and the vibrations of the violin his father once played. The IACS director gives him his own key.</p>
-      </div>
-    </div>
-
-    <div class="stop-step" data-lat="16.8661" data-lng="96.1951" data-zoom="5"
-         data-place="Rangoon, Burma" data-year="1909" data-color="#287267">
-      <div class="stop-card">
-        <div class="stop-tag tag-government"><div class="tag-dot"></div>Government Service</div>
-        <p class="stop-year">1909 – 1911</p>
-        <h2><span class="place-name">Rangoon, Burma</span>Currency Officer across the Bay</h2>
-        <p>A posting as <strong>Currency Officer</strong> takes Raman across the Bay of Bengal to Rangoon. He carries his scientific notebooks with him. The administrative work is conscientious; the scientific correspondence with Calcutta never stops.</p>
-        <p>The transfer demonstrates what his brother CS had predicted — government service was a Kamadhenu, the mythical cow of plenty, funding the freedom to think. Raman returns to Calcutta at the first opportunity.</p>
-      </div>
-    </div>
-
-    <div class="stop-step" data-lat="21.1458" data-lng="79.0882" data-zoom="6"
-         data-place="Nagpur, Central Provinces" data-year="1911" data-color="#287267">
-      <div class="stop-card">
-        <div class="stop-tag tag-government"><div class="tag-dot"></div>Government Service</div>
-        <p class="stop-year">1911 – 1913</p>
-        <h2><span class="place-name">Nagpur, Central Provinces</span>Vibrating strings in an upstairs room</h2>
-        <p>Posted to Nagpur as <strong>Deputy Accountant General</strong>, Raman sets up a small home laboratory in an upstairs room and continues his studies on vibrating strings and bowed instruments. Every weekend he experiments; every Monday he is back at his desk.</p>
-        <p>The improvised Nagpur laboratory produces papers on the acoustics of stringed instruments that European physicists will later cite. Science, Raman is proving, needs curiosity more than it needs expensive equipment.</p>
-      </div>
-    </div>
-
-    <div class="stop-step" data-lat="22.5726" data-lng="88.3639" data-zoom="7"
-         data-place="Calcutta — Palit Professorship" data-year="1917" data-color="#287267">
-      <div class="stop-card">
-        <div class="stop-tag tag-government"><div class="tag-dot"></div>Research</div>
-        <p class="stop-year">1917 – 1933</p>
-        <h2><span class="place-name">Calcutta — Palit Chair</span>Caesar gets his due — and not a paisa more</h2>
-        <p>Sir Asutosh Mookerjee offers Raman the <strong>Palit Professorship</strong> at the University of Calcutta. Raman resigns from the Indian Finance Service the same day — a salary cut of more than half, accepted without hesitation.</p>
-        <p>For the next sixteen years Calcutta is his world: the IACS laboratory, the university lecture hall, five hundred students. Here the slow accumulation of observations about light scattering will become something epochal.</p>
-      </div>
-    </div>
-
-  </div><!-- /ch-government -->
-
-  <!-- ═══════════════════════════════════════════
-       CHAPTER 3 — FIRST VOYAGE / MEDITERRANEAN
-  ════════════════════════════════════════════ -->
-  <div class="chapter-divider">
-    <div class="chapter-title-block">
-      <p class="chapter-label">1921</p>
-      <h2>Why Is the Sea Blue?</h2>
-      <p>His first journey overseas. A question formed mid-ocean, tested with a prism borrowed from the ship's kit, would take seven more years to prove — and then change physics forever.</p>
+<div class="stop-step" data-lat="17.717" data-lng="83.302" data-zoom="13" data-place="Visakhapatnam (Waltair)" data-year="1892–1902" data-color="#9B5DE5" data-transit="long"
+     data-subs='[{"lat":17.726,"lng":83.394,"label":"Dolphin'\''s Nose headland — geography lessons"},{"lat":17.879,"lng":83.379,"label":"Borra Caves, Araku Valley"},{"lat":17.724,"lng":83.299,"label":"Mrs. A.V.N. College (father taught physics here)"},{"lat":17.715,"lng":83.295,"label":"Vizag beach, Waltair — iridescent shells"},{"lat":17.731,"lng":83.312,"label":"Family house, Waltair quarter"}]'>
+  <div class="card">
+    <div class="tag" style="background:rgba(155,93,229,.16);color:var(--c-v)"><div class="td" style="background:var(--c-v)"></div>Childhood</div>
+    <p class="stop-yr">1892 – 1902</p>
+    <h2><span class="pn" style="color:var(--c-v)">Visakhapatnam — Waltair quarter</span>Schoolboy by the sea</h2>
+    <p>Father joins <strong>Mrs. A.V.N. College</strong>. Raman grows up in Waltair, always youngest and best in class. He studies iridescent shells on the beach and asks his first optics questions. Matriculates at twelve.</p>
+    <button class="rm-btn" aria-expanded="false">Read more <svg width="11" height="11" viewBox="0 0 12 12" fill="none"><path d="M2 4l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></button>
+    <div class="rm-body">
+      <p>Father takes the boys to <strong>Dolphin's Nose</strong> — the rocky promontory with its panoramic view over the Bay of Bengal — for real-world lessons in physiography. They also visit the <strong>Borra Caves</strong> in the Ananthagiri hills, stalactite formations that kindle Raman's curiosity about how mineral shapes form. On the Vizag beach, Raman explains to younger Skandan how shells produce colours: thin crystal layers of calcium carbonate stacked like interference films — the same physics he will spend his life on. He reads Maxwell's Electromagnetic Theory from his father's top shelf and finishes it in a day. Maxwell is his first hero.</p>
+      <div class="img-ph" data-caption="Dolphin's Nose headland, Visakhapatnam"><svg width="28" height="28" viewBox="0 0 24 24" fill="none"><rect x="3" y="5" width="18" height="14" rx="2" stroke="currentColor" stroke-width="1.5"/><circle cx="8.5" cy="10.5" r="1.5" stroke="currentColor" stroke-width="1.2"/><path d="M3 16l5-5 4 4 3-3 6 5" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg></div>
+      <div class="img-ph" data-caption="Borra Caves stalactites, Araku Valley"><svg width="28" height="28" viewBox="0 0 24 24" fill="none"><rect x="3" y="5" width="18" height="14" rx="2" stroke="currentColor" stroke-width="1.5"/><circle cx="8.5" cy="10.5" r="1.5" stroke="currentColor" stroke-width="1.2"/><path d="M3 16l5-5 4 4 3-3 6 5" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg></div>
+      <div class="lp-chips"><span class="lp">Dolphin's Nose</span><span class="lp">Borra Caves, Araku</span><span class="lp">Mrs. A.V.N. College</span><span class="lp">Vizag beach, Waltair</span><span class="lp">Govind Das neighbours' house</span></div>
     </div>
   </div>
+</div>
 
-  <div class="chapter" id="ch-mediterranean">
+</div><!-- /ch-childhood -->
 
-    <div class="stop-step" data-lat="51.752" data-lng="-1.2577" data-zoom="5"
-         data-place="Oxford & London, England" data-year="1921" data-color="#2f5f9e">
-      <div class="stop-card">
-        <div class="stop-tag tag-voyage"><div class="tag-dot"></div>First Voyage</div>
-        <p class="stop-year">Summer 1921</p>
-        <h2><span class="place-name">Oxford & London</span>Universities Congress delegate</h2>
-        <p>Raman sails to England for the first time, representing the University of Calcutta at the <strong>Universities Congress</strong> and addressing the British Association. In London he visits <strong>St Paul's Cathedral</strong> and studies the acoustics of its famous Whispering Gallery, co-publishing a paper in Nature that same year.</p>
-        <p>He meets leading British physicists who already know his name from the journals.</p>
-      </div>
-    </div>
+<!-- ══ CH2 MADRAS ══ -->
+<div class="ch-div">
+  <div class="ch-block">
+    <p class="ch-label" style="color:var(--c-i)">Chapter II · 1903 – 1907</p>
+    <h2>Madras — Presidency College</h2>
+    <p>A fourteen-year-old arrives in a city of sea-breezes and second-hand journals. Professors assume he's in the wrong classroom. He isn't.</p>
+  </div>
+</div>
 
-    <div class="stop-step" data-lat="35.0" data-lng="18.0" data-zoom="4"
-         data-place="Mediterranean Sea" data-year="1921" data-color="#2f5f9e">
-      <div class="stop-card">
-        <div class="stop-tag tag-voyage"><div class="tag-dot"></div>Eureka Moment</div>
-        <p class="stop-year">Return voyage, 1921</p>
-        <h2><span class="place-name">The Mediterranean Sea</span>The sea becomes an experiment</h2>
-        <p>Sailing home, Raman is transfixed by the <strong>deep blue of the Mediterranean</strong>. Lord Rayleigh had declared the colour merely a reflection of the sky. Raman reaches into his bag, produces a <strong>Nicol prism</strong>, and quenches the sky's reflection — the sea grows bluer still.</p>
-        <p>Water molecules themselves scatter light. He writes a paper before the ship docks. Seven years later this observation will become the Raman Effect.</p>
-      </div>
-    </div>
+<div id="ch-madras">
 
-  </div><!-- /ch-mediterranean -->
-
-  <!-- ═══════════════════════════════════════════
-       CHAPTER 4 — NORTH AMERICA
-  ════════════════════════════════════════════ -->
-  <div class="chapter-divider">
-    <div class="chapter-title-block">
-      <p class="chapter-label">1924 – 1925</p>
-      <h2>Across the Atlantic to America</h2>
-      <p>A Fellow of the Royal Society — only the fourth Indian ever — Raman tours North America and spends months at Caltech. The network he builds here will carry word of the Raman Effect around the globe within weeks of its discovery.</p>
+<div class="stop-step" data-lat="13.061" data-lng="80.278" data-zoom="14" data-place="Madras — Presidency College & Triplicane" data-year="1903–1907" data-color="#5E60CE" data-transit="long"
+     data-subs='[{"lat":13.0632,"lng":80.281,"label":"Presidency College — gold medals, free lab access"},{"lat":13.0524,"lng":80.2798,"label":"Marina Beach — daily morning walks"},{"lat":13.068,"lng":80.275,"label":"Connemara Public Library — Philosophical Magazines"},{"lat":13.0744,"lng":80.2662,"label":"Moore Market — second-hand science journals"},{"lat":13.054,"lng":80.2792,"label":"52 Pycrofts Road, Triplicane — family house"},{"lat":13.0484,"lng":80.274,"label":"Maharajah of Vizianagaram Girls'\'' School, Triplicane — wedding 1907"}]'>
+  <div class="card">
+    <div class="tag" style="background:rgba(94,96,206,.18);color:var(--c-i)"><div class="td" style="background:var(--c-i)"></div>Education</div>
+    <p class="stop-yr">1903 – 1907</p>
+    <h2><span class="pn" style="color:var(--c-i)">Madras — Presidency College</span>Fourteen, already beyond the syllabus</h2>
+    <p>Professor Elliott assumes the slight boy is in the wrong room. He isn't. Raman wins gold medals in physics and English, earns his MSc at eighteen. Professor Llewellyn Jones grants him <strong>carte blanche on the labs at any hour</strong>.</p>
+    <button class="rm-btn" aria-expanded="false">Read more <svg width="11" height="11" viewBox="0 0 12 12" fill="none"><path d="M2 4l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></button>
+    <div class="rm-body">
+      <p>Every morning, dawn walks on the <strong>Marina Beach</strong> — watching fishermen push catamarans into the surf, noting the colours of the eastern horizon. Afternoons at the <strong>Connemara Library</strong> (stocked from Haileybury College's donation), reading everything from Homer to the Philosophical Magazine. For harder-to-find journals he goes to <strong>Moore Market</strong> — second-hand stalls stacked to the ceiling, English officers' discarded science journals. He finds several issues of the Philosophical Magazine here and decides this is where he'll send his papers. The family settles at <strong>52 Pycrofts Road, Triplicane</strong>, run by great-aunt Muthuchipi who feeds him rice-kanji at dawn. The civil surgeon bars him from England — a verdict Raman will call the greatest favour of his life. His wedding to Lokasundari is held in 1907 at the <strong>Maharajah of Vizianagaram Girls' School premises, Triplicane</strong> — reported in The Hindu as a landmark inter-sect alliance.</p>
+      <div class="img-ph" data-caption="Presidency College, Chennai (est. 1840) — Raman's gold-medal years"><svg width="28" height="28" viewBox="0 0 24 24" fill="none"><rect x="3" y="5" width="18" height="14" rx="2" stroke="currentColor" stroke-width="1.5"/><circle cx="8.5" cy="10.5" r="1.5" stroke="currentColor" stroke-width="1.2"/><path d="M3 16l5-5 4 4 3-3 6 5" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg></div>
+      <div class="lp-chips"><span class="lp">Presidency College</span><span class="lp">Marina Beach</span><span class="lp">Connemara Library</span><span class="lp">Moore Market</span><span class="lp">52 Pycrofts Road, Triplicane</span><span class="lp">Vizianagaram Girls' School (wedding)</span></div>
     </div>
   </div>
+</div>
 
-  <div class="chapter" id="ch-america">
+</div><!-- /ch-madras -->
 
-    <div class="stop-step" data-lat="43.6532" data-lng="-79.3832" data-zoom="4"
-         data-place="Toronto, Canada" data-year="1924" data-color="#2f5f9e">
-      <div class="stop-card">
-        <div class="stop-tag tag-voyage"><div class="tag-dot"></div>North America</div>
-        <p class="stop-year">1924</p>
-        <h2><span class="place-name">Toronto, Canada</span>Light scattering at the British Association</h2>
-        <p>Raman travels to Toronto for the <strong>British Association for the Advancement of Science</strong> meeting and opens a major discussion on light scattering. The room is full of physicists who will soon be citing him in their own work.</p>
-        <p>He is elected <strong>Fellow of the Royal Society</strong> this same year — the fourth Indian to receive the honour.</p>
-      </div>
-    </div>
+<!-- ══ CH3 CALCUTTA ══ -->
+<div class="ch-div">
+  <div class="ch-block">
+    <p class="ch-label" style="color:var(--c-b)">Chapter III · 1907 – 1933</p>
+    <h2>Calcutta — The Double Life</h2>
+    <p>By day, counting the Crown's coins at Dalhousie Square. By night, a physicist at 210 Bow Bazar Street who would change how humanity understands light.</p>
+  </div>
+</div>
 
-    <div class="stop-step" data-lat="39.9526" data-lng="-75.1652" data-zoom="5"
-         data-place="Philadelphia, USA" data-year="1924" data-color="#2f5f9e">
-      <div class="stop-card">
-        <div class="stop-tag tag-voyage"><div class="tag-dot"></div>North America</div>
-        <p class="stop-year">1924</p>
-        <h2><span class="place-name">Philadelphia</span>Franklin Institute centenary</h2>
-        <p>At the <strong>Franklin Institute centenary</strong> Raman meets Robert A. Millikan, the American Nobel Laureate. Millikan is immediately struck by the Indian physicist's range and depth. He extends an invitation to spend time at Caltech in Pasadena.</p>
-      </div>
-    </div>
+<div id="ch-calcutta">
 
-    <div class="stop-step" data-lat="34.1478" data-lng="-118.1445" data-zoom="6"
-         data-place="Pasadena — Caltech" data-year="1924" data-color="#2f5f9e">
-      <div class="stop-card">
-        <div class="stop-tag tag-voyage"><div class="tag-dot"></div>North America</div>
-        <p class="stop-year">1924 – 1925</p>
-        <h2><span class="place-name">Pasadena, California</span>Visiting Professor at Caltech</h2>
-        <p>Four months at the <strong>California Institute of Technology</strong> as Millikan's guest. Raman lectures, collaborates, and returns with a global network of physicists who are now watching what comes out of the IACS laboratory in Calcutta with keen interest.</p>
-        <p>His confidence that a Nobel Prize is possible — probable, even — crystallises here in the California sun.</p>
-      </div>
-    </div>
-
-  </div><!-- /ch-america -->
-
-  <!-- ═══════════════════════════════════════════
-       CHAPTER 5 — DISCOVERY & NOBEL ROUTE
-  ════════════════════════════════════════════ -->
-  <div class="chapter-divider">
-    <div class="chapter-title-block">
-      <p class="chapter-label">Chapter V · 1928 – 1931</p>
-      <h2>The Nobel Route: Discovery to Stockholm</h2>
-      <p>February 1928: the Raman Effect is proved in a Calcutta laboratory. December 1930: a turbaned Indian physicist stands before King Gustav V and weeps — because India had no flag of its own.</p>
+<div class="stop-step" data-lat="22.566" data-lng="88.361" data-zoom="14" data-place="Calcutta — Bow Bazar & IACS" data-year="1907–1917" data-color="#4CC9F0" data-transit="long"
+     data-subs='[{"lat":22.5674,"lng":88.3601,"label":"IACS, 210 Bow Bazar St — Vizianagaram Lab"},{"lat":22.5672,"lng":88.359,"label":"Raman'\''s house, 1/5/1B Bow Bazar (1915-33)"},{"lat":22.558,"lng":88.35,"label":"Dalhousie Square — Govt Offices (daily tram commute)"},{"lat":22.5617,"lng":88.3489,"label":"The Maidan — evening walks with Lokam"},{"lat":22.554,"lng":88.345,"label":"Chowringhee — Sunday phaeton rides"},{"lat":22.575,"lng":88.355,"label":"Premchand Burral St (earlier house)"},{"lat":22.577,"lng":88.363,"label":"Kalitola tram stop"}]'>
+  <div class="card">
+    <div class="tag" style="background:rgba(76,201,240,.14);color:var(--c-b)"><div class="td" style="background:var(--c-b)"></div>Double Life</div>
+    <p class="stop-yr">1907 – 1917</p>
+    <h2><span class="pn" style="color:var(--c-b)">Calcutta — Bow Bazar &amp; IACS</span>"It won't be desolate now. I am here."</h2>
+    <p>On a tram to Dalhousie Square, Raman spots a board: <strong>"Indian Association for the Cultivation of Science."</strong> He jumps off at the next stop. An empty, well-equipped lab at 210 Bow Bazar Street. His exile is over.</p>
+    <button class="rm-btn" aria-expanded="false">Read more <svg width="11" height="11" viewBox="0 0 12 12" fill="none"><path d="M2 4l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></button>
+    <div class="rm-body">
+      <p>Raman joins the Finance Service; Bow Bazar is crowded, there's an open sewer behind the house, but it's within half a mile of IACS. By 1915 he takes house <strong>1/5/1B Bow Bazar Street</strong>, back-to-back with the lab — the IACS compound wall has a door cut in it, and Raman has the key. Office is at <strong>Dalhousie Square</strong>; tram each way, never a minute late, never a minute extra. Evenings: walks on the <strong>Maidan</strong> with Lokam, him discussing the office, her listening. Sundays: a phaeton on <strong>Chowringhee</strong> to savour the flowering trees. Ashu Babu (Asutosh Dey), the IACS lab assistant, becomes Raman's staunchest supporter for twenty-five years.</p>
+      <div class="img-ph" data-caption="IACS building, Bow Bazar Street, Calcutta — where Raman did his life's work"><svg width="28" height="28" viewBox="0 0 24 24" fill="none"><rect x="3" y="5" width="18" height="14" rx="2" stroke="currentColor" stroke-width="1.5"/><circle cx="8.5" cy="10.5" r="1.5" stroke="currentColor" stroke-width="1.2"/><path d="M3 16l5-5 4 4 3-3 6 5" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg></div>
+      <div class="lp-chips"><span class="lp">IACS, 210 Bow Bazar St</span><span class="lp">1/5/1B Bow Bazar (home 1915-33)</span><span class="lp">Dalhousie Square</span><span class="lp">The Maidan</span><span class="lp">Chowringhee</span><span class="lp">Kalitola tram stop</span></div>
     </div>
   </div>
+</div>
 
-  <div class="chapter" id="ch-nobel">
-
-    <div class="stop-step" data-lat="22.5726" data-lng="88.3639" data-zoom="8"
-         data-place="Calcutta — IACS Discovery" data-year="1928" data-color="#2f5f9e">
-      <div class="stop-card">
-        <div class="stop-tag tag-voyage"><div class="tag-dot"></div>Discovery</div>
-        <p class="stop-year">28 February 1928</p>
-        <h2><span class="place-name">Calcutta — IACS Lab</span>A new type of secondary radiation</h2>
-        <p>The conclusive experiment. Raman and K.S. Krishnan observe that a fraction of scattered photons carry a <strong>different energy</strong> from the incident beam — a phenomenon that will bear his name for ever. A one-page paper is rushed to Nature and published on 31 March 1928.</p>
-        <p>Within a year, 150 papers cite it. Raman books tickets to Stockholm — in July, four months before the Nobel Committee announces its decision. He knows.</p>
-      </div>
-    </div>
-
-    <div class="stop-step" data-lat="12.2958" data-lng="76.6394" data-zoom="7"
-         data-place="Mysore" data-year="1929" data-color="#2f5f9e">
-      <div class="stop-card">
-        <div class="stop-tag tag-voyage"><div class="tag-dot"></div>Nobel Route</div>
-        <p class="stop-year">1929</p>
-        <h2><span class="place-name">Mysore</span>Convocation before departure</h2>
-        <p>Before sailing for Europe, Raman delivers a <strong>convocation address</strong> in Mysore — the city whose maharaja had already conferred on him the title Rajasabha Bhushana, complete with gold-brocaded coat and shawl. He treasures this robe more than any British knighthood.</p>
-      </div>
-    </div>
-
-    <div class="stop-step" data-lat="18.9322" data-lng="72.8364" data-zoom="7"
-         data-place="Bombay — port of departure" data-year="1929" data-color="#2f5f9e">
-      <div class="stop-card">
-        <div class="stop-tag tag-voyage"><div class="tag-dot"></div>Nobel Route</div>
-        <p class="stop-year">1929</p>
-        <h2><span class="place-name">Bombay (Mumbai)</span>Setting sail for Europe</h2>
-        <p>Raman and his wife Lokasundari board ship at <strong>Bombay's Apollo Bunder</strong>, bound for Europe. This is now a Nobel journey in all but the announcement — which will come in November, while he is already at sea, or already in Europe.</p>
-      </div>
-    </div>
-
-    <div class="stop-step" data-lat="30.0444" data-lng="31.2357" data-zoom="5"
-         data-place="Egypt — through Suez and Cairo" data-year="1929" data-color="#2f5f9e">
-      <div class="stop-card">
-        <div class="stop-tag tag-voyage"><div class="tag-dot"></div>Nobel Route</div>
-        <p class="stop-year">1929</p>
-        <h2><span class="place-name">Egypt — Suez & Cairo</span>Pyramids on the way to the Prize</h2>
-        <p>The ship passes through the Suez Canal. Raman visits the <strong>Pyramids at Giza</strong> — monuments of human ingenuity that move him deeply. He muses on the ancient Egyptians' knowledge of geometry and optics, seeing in them a kindred obsession with the laws of nature.</p>
-      </div>
-    </div>
-
-    <div class="stop-step" data-lat="41.9028" data-lng="12.4964" data-zoom="6"
-         data-place="Rome, Italy" data-year="1929" data-color="#2f5f9e">
-      <div class="stop-card">
-        <div class="stop-tag tag-voyage"><div class="tag-dot"></div>Nobel Route</div>
-        <p class="stop-year">1929</p>
-        <h2><span class="place-name">Rome, Italy</span>Museums and the Vatican</h2>
-        <p>In Rome, Raman walks the museums, the Vatican galleries, and ancient ruins. He had dreamt of Athens and Rome since a boy in Vizagapatam, when his brother CS described the Greek amphitheatres carved into hillsides, the <strong>view of the Ionian Sea from Taormina</strong>, and Mount Etna glittering in the light. Now the dream is real.</p>
-      </div>
-    </div>
-
-    <div class="stop-step" data-lat="44.4056" data-lng="8.9463" data-zoom="5"
-         data-place="Genoa, Italy" data-year="1929" data-color="#2f5f9e">
-      <div class="stop-card">
-        <div class="stop-tag tag-voyage"><div class="tag-dot"></div>Nobel Route</div>
-        <p class="stop-year">1929</p>
-        <h2><span class="place-name">Genoa</span>Gateway to the north</h2>
-        <p>From <strong>Genoa's harbour</strong> Raman and Lokasundari travel northward through the continent, the Ligurian coast framing the same blue-green Mediterranean water that had captivated him eight years earlier. The question he had posed on that 1921 return voyage is now the answer that will win the world's greatest science prize.</p>
-      </div>
-    </div>
-
-    <div class="stop-step" data-lat="51.4545" data-lng="-2.5879" data-zoom="6"
-         data-place="Bristol, England" data-year="1929" data-color="#2f5f9e">
-      <div class="stop-card">
-        <div class="stop-tag tag-voyage"><div class="tag-dot"></div>Nobel Route</div>
-        <p class="stop-year">1929</p>
-        <h2><span class="place-name">Bristol, England</span>Faraday Society address</h2>
-        <p>At the <strong>Faraday Society</strong> meeting in Bristol, Raman addresses European physicists on light scattering in full — his most comprehensive public exposition of the Raman Effect to date. The room is electrified. Stockholm cannot be far away.</p>
-      </div>
-    </div>
-
-    <div class="stop-step" data-lat="59.3293" data-lng="18.0686" data-zoom="5"
-         data-place="Stockholm, Sweden" data-year="1930" data-color="#2f5f9e">
-      <div class="stop-card">
-        <div class="stop-tag tag-voyage"><div class="tag-dot"></div>Nobel Prize</div>
-        <p class="stop-year">10 December 1930</p>
-        <h2><span class="place-name">Stockholm, Sweden</span>India's first Nobel in science</h2>
-        <p>King Gustav V places the medal in Raman's hands. As the audience applauds, Raman turns and sees the <strong>British Union Jack</strong> flying above his seat. He breaks down in tears: his country has no flag of its own.</p>
-        <p>In his banquet speech, Lokasundari notes, he tells the assembled laureates that the greatest obstacle to science in his land is poverty — and the greatest resource is the curiosity of its people. He is forty-two years old. He is the <strong>first Asian to win the Nobel Prize in Physics.</strong></p>
-      </div>
-    </div>
-
-    <div class="stop-step" data-lat="59.8586" data-lng="17.6389" data-zoom="7"
-         data-place="Uppsala, Sweden" data-year="1930" data-color="#2f5f9e">
-      <div class="stop-card">
-        <div class="stop-tag tag-voyage"><div class="tag-dot"></div>Nobel Route</div>
-        <p class="stop-year">December 1930</p>
-        <h2><span class="place-name">Uppsala, Sweden</span>Guest of Siegbahn</h2>
-        <p>After the Stockholm ceremony, Raman travels to <strong>Uppsala University</strong> as the guest of Professor Manne Siegbahn, the 1924 Nobel laureate in physics. The two men share a deep interest in X-ray spectroscopy and optical phenomena. Raman returns to India carrying the gold medal and the quiet certainty that his country can — and must — become a world scientific power.</p>
-      </div>
-    </div>
-
-  </div><!-- /ch-nobel -->
-
-  <!-- ═══════════════════════════════════════════
-       CHAPTER 6 — INSTITUTION BUILDER
-  ════════════════════════════════════════════ -->
-  <div class="chapter-divider">
-    <div class="chapter-title-block">
-      <p class="chapter-label">1933 – 1956</p>
-      <h2>Bangalore, Diamonds & the Science of India</h2>
-      <p>Raman plants trees on a campus, builds an academy, visits diamond mines, and refuses government money — all from one city he will never leave again.</p>
+<div class="stop-step" data-lat="22.572" data-lng="88.363" data-zoom="14" data-place="Calcutta — University & Discovery" data-year="1917–1928" data-color="#4CC9F0" data-transit="local"
+     data-subs='[{"lat":22.5726,"lng":88.3639,"label":"University College of Science, Rajabazar"},{"lat":22.5674,"lng":88.3601,"label":"IACS — where the Raman Effect was proved, 28 Feb 1928"},{"lat":22.5728,"lng":88.364,"label":"Senate House, Calcutta University"}]'>
+  <div class="card">
+    <div class="tag" style="background:rgba(76,201,240,.14);color:var(--c-b)"><div class="td" style="background:var(--c-b)"></div>Palit Chair · Discovery</div>
+    <p class="stop-yr">1917 – 1933</p>
+    <h2><span class="pn" style="color:var(--c-b)">University of Calcutta — Palit Chair</span>Caesar paid off. Science unchained.</h2>
+    <p>Sir Asutosh offers the Palit Professorship; Raman resigns from the Finance Service the same day. On <strong>28 February 1928</strong>, at the IACS lab, the Raman Effect is proved. A one-page letter to Nature. 150 citations within a year.</p>
+    <button class="rm-btn" aria-expanded="false">Read more <svg width="11" height="11" viewBox="0 0 12 12" fill="none"><path d="M2 4l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></button>
+    <div class="rm-body">
+      <p>The <strong>University College of Science at Rajabazar</strong> and the IACS become twin centres of world-class research. Raman trains 500 students over sixteen years. He spots "ten-kilowatt brains" on first meeting. In July 1930, four months before the Nobel Committee announces their decision, Raman quietly books tickets to Stockholm. He knows. India celebrates 28 February as <strong>National Science Day</strong>.</p>
+      <div class="lp-chips"><span class="lp">IACS lab — discovery site</span><span class="lp">University College of Science, Rajabazar</span><span class="lp">Senate House, Cal. University</span></div>
     </div>
   </div>
+</div>
 
-  <div class="chapter" id="ch-builder">
+</div><!-- /ch-calcutta -->
 
-    <div class="stop-step" data-lat="13.0219" data-lng="77.5671" data-zoom="8"
-         data-place="Bangalore — IISc" data-year="1933" data-color="#287267">
-      <div class="stop-card">
-        <div class="stop-tag tag-government"><div class="tag-dot"></div>Institution Builder</div>
-        <p class="stop-year">1933 – 1948</p>
-        <h2><span class="place-name">Bangalore — IISc</span>The director plants trees</h2>
-        <p>Raman arrives at the <strong>Indian Institute of Science</strong> as its director. His first act is to order saplings planted across the campus — those trees are now broad avenues. He founds the <strong>Indian Academy of Sciences</strong> in 1934, launches its journal, and refuses all government grants for his personal research.</p>
-        <p>He works on crystal lattices, diamond optics, and the physiology of colour vision. Five hundred students at a time. Not a paisa from the state.</p>
-      </div>
-    </div>
+<!-- ══ CH4 POSTINGS ══ -->
+<div class="ch-div">
+  <div class="ch-block">
+    <p class="ch-label" style="color:var(--c-c)">Chapter IV · 1909 – 1912</p>
+    <h2>Postings: Rangoon &amp; Nagpur</h2>
+    <p>The government sends him away. He sets up laboratories in upstairs rooms and keeps working.</p>
+  </div>
+</div>
 
-    <div class="stop-step" data-lat="24.7205" data-lng="80.1815" data-zoom="6"
-         data-place="Panna, Madhya Pradesh" data-year="1942" data-color="#287267">
-      <div class="stop-card">
-        <div class="stop-tag tag-government"><div class="tag-dot"></div>Research Journey</div>
-        <p class="stop-year">1942</p>
-        <h2><span class="place-name">Panna, Madhya Pradesh</span>Into the diamond mines</h2>
-        <p>Wartime India. Raman travels to <strong>Panna's legendary diamond fields</strong> in the Vindhyan plateau to study the optical properties of gem diamonds at their source. The trip feeds directly into his research on the <strong>lattice vibrations of diamond</strong> — the work that will define his Bangalore years.</p>
-        <p>He believed that diamonds, with their extraordinary optical purity, were nature's finest laboratory instruments. He was not wrong.</p>
-      </div>
-    </div>
+<div id="ch-postings">
 
-    <div class="stop-step" data-lat="25.4358" data-lng="81.8463" data-zoom="5"
-         data-place="Allahabad — Science Congress" data-year="1948" data-color="#287267">
-      <div class="stop-card">
-        <div class="stop-tag tag-government"><div class="tag-dot"></div>Milestone</div>
-        <p class="stop-year">1948</p>
-        <h2><span class="place-name">Allahabad</span>Sixtieth birthday & the Science Congress</h2>
-        <p>The <strong>Indian Science Congress</strong> in Allahabad doubles as a celebration of Raman's sixtieth birthday. Colleagues and former students gather from across the country. He is at this point already retired from IISc and building his own, government-free research institute back in Bangalore.</p>
-      </div>
-    </div>
-
-    <div class="stop-step" data-lat="26.4499" data-lng="80.3319" data-zoom="6"
-         data-place="Kanpur" data-year="1955" data-color="#287267">
-      <div class="stop-card">
-        <div class="stop-tag tag-government"><div class="tag-dot"></div>Domestic Lecture</div>
-        <p class="stop-year">Mid-1950s</p>
-        <h2><span class="place-name">Kanpur</span>Teaching a new generation</h2>
-        <p>Raman visits <strong>Kanpur</strong> for lectures and institutional visits, part of his continuing effort to spread scientific culture beyond the major research cities. He was profoundly committed to the idea that India needed a broad base of researchers — not just a handful of geniuses — to become a scientific power.</p>
-      </div>
-    </div>
-
-    <div class="stop-step" data-lat="47.5798" data-lng="9.6789" data-zoom="5"
-         data-place="Lindau, Germany" data-year="1956" data-color="#287267">
-      <div class="stop-card">
-        <div class="stop-tag tag-voyage"><div class="tag-dot"></div>International</div>
-        <p class="stop-year">1956</p>
-        <h2><span class="place-name">Lindau, Germany</span>Nobel Laureates convene</h2>
-        <p>Raman attends the <strong>Lindau Nobel Laureates Meeting</strong> — the annual gathering where laureates meet the next generation of scientists. At sixty-eight, he is one of the most distinguished figures present. He speaks about the unity of scientific inquiry across nations and ideologies, a belief he has held for fifty years.</p>
-      </div>
-    </div>
-
-  </div><!-- /ch-builder -->
-
-  <!-- ═══════════════════════════════════════════
-       CHAPTER 7 — LATE HONOURS
-  ════════════════════════════════════════════ -->
-  <div class="chapter-divider">
-    <div class="chapter-title-block">
-      <p class="chapter-label">1958 – 1970</p>
-      <h2>The Lenin Prize Tour & the Final Lectures</h2>
-      <p>One last great international journey — Bombay to Genoa, Sweden, Moscow, Budapest — and then home to Bangalore, where he would plant a papaya tree and refuse to go gently.</p>
+<div class="stop-step" data-lat="16.866" data-lng="96.195" data-zoom="13" data-place="Rangoon, Burma" data-year="1909–1910" data-color="#4ADEDE" data-transit="long"
+     data-subs='[{"lat":16.866,"lng":96.195,"label":"Currency Office, Rangoon"},{"lat":16.871,"lng":96.175,"label":"Rangoon College (N.C. Krishna Iyer — Raman'\''s contact)"},{"lat":16.842,"lng":96.132,"label":"Dalhousie Park & Royal Lake — Sunday outings"}]'>
+  <div class="card">
+    <div class="tag" style="background:rgba(74,222,222,.14);color:var(--c-c)"><div class="td" style="background:var(--c-c)"></div>Govt Service</div>
+    <p class="stop-yr">1909 – 1910</p>
+    <h2><span class="pn" style="color:var(--c-c)">Rangoon, Burma</span>Exile across the Bay</h2>
+    <p>Promoted to Currency Officer, Raman is posted across the Bay of Bengal. He carries his notebooks and the address of <strong>N.C. Krishna Iyer</strong> at Rangoon College. His mother is horrified.</p>
+    <button class="rm-btn" aria-expanded="false">Read more <svg width="11" height="11" viewBox="0 0 12 12" fill="none"><path d="M2 4l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></button>
+    <div class="rm-body">
+      <p>The lack of instruments drives Raman to insomnia — night after night he paces the floor. The sky over Rangoon is spectacular on clear nights; he dreams of a telescope for Halley's Comet. On Sundays, he and Lokam take a boat on <strong>Royal Lake</strong> — 160 acres of water, 205 acres of parkland — at the exorbitant cost of a 15-rupee taxi. They visit a sawmill to watch elephants pull teak logs from the river. Father dies in February 1910, aged 44. Raman boards a freighter to Vizagapatam on the eleventh day.</p>
+      <div class="lp-chips"><span class="lp">Currency Office</span><span class="lp">Rangoon College</span><span class="lp">Royal Lake / Dalhousie Park</span><span class="lp">Teak sawmill on river</span></div>
     </div>
   </div>
+</div>
 
-  <div class="chapter" id="ch-final">
-
-    <div class="stop-step" data-lat="18.9322" data-lng="72.8364" data-zoom="6"
-         data-place="Bombay — departure, 1958" data-year="1958" data-color="#8b5b8f">
-      <div class="stop-card">
-        <div class="stop-tag tag-honour"><div class="tag-dot"></div>Late Honour</div>
-        <p class="stop-year">1958</p>
-        <h2><span class="place-name">Bombay</span>The last great voyage begins</h2>
-        <p>At seventy, Raman boards ship at <strong>Bombay</strong> for his final international journey — to receive the <strong>Lenin Peace Prize</strong> in Moscow. His wife Lokasundari is at his side. The route runs westward: Genoa, Sweden, Moscow, Budapest.</p>
-      </div>
+<div class="stop-step" data-lat="21.145" data-lng="79.088" data-zoom="14" data-place="Nagpur, Central Provinces" data-year="1910–1912" data-color="#4ADEDE" data-transit="long"
+     data-subs='[{"lat":21.145,"lng":79.088,"label":"House near Sitabuldi Square — upstairs lab"},{"lat":21.147,"lng":79.097,"label":"Science College, Nagpur — used their labs"},{"lat":21.148,"lng":79.093,"label":"Civil Lines (declined the grand bungalow)"}]'>
+  <div class="card">
+    <div class="tag" style="background:rgba(74,222,222,.14);color:var(--c-c)"><div class="td" style="background:var(--c-c)"></div>Govt Service</div>
+    <p class="stop-yr">1910 – 1912</p>
+    <h2><span class="pn" style="color:var(--c-c)">Nagpur, Central Provinces</span>The upstairs laboratory</h2>
+    <p>Posted as Deputy Accountant General. Raman surveys the city, picks a house near <strong>Sitabuldi Square</strong> within walking distance of Science College — and turns the large upstairs room into a lab the same week.</p>
+    <button class="rm-btn" aria-expanded="false">Read more <svg width="11" height="11" viewBox="0 0 12 12" fill="none"><path d="M2 4l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></button>
+    <div class="rm-body">
+      <p>He refuses the grand <strong>Civil Lines</strong> bungalow — too far from Science College, no trams, no tongas. He picks the first house between Sitabuldi Square and Chota Dhantoli: mud walls, outer brick, a large room upstairs, a veranda overlooking a maidan and the Buty garden. Instruments spread on large and small tables. Papers on acoustics of bowed strings — the wolf note, how the bridge in Lokam's veena differs from a violin — appear in European journals citing "Nagpur" as the institution. Science needs curiosity more than expensive equipment.</p>
+      <div class="lp-chips"><span class="lp">Sitabuldi Square area</span><span class="lp">Science College, Nagpur</span><span class="lp">House near Chota Dhantoli</span><span class="lp">Civil Lines (declined)</span></div>
     </div>
+  </div>
+</div>
 
-    <div class="stop-step" data-lat="44.4056" data-lng="8.9463" data-zoom="5"
-         data-place="Genoa — European landfall" data-year="1958" data-color="#8b5b8f">
-      <div class="stop-card">
-        <div class="stop-tag tag-honour"><div class="tag-dot"></div>Late Honour</div>
-        <p class="stop-year">1958</p>
-        <h2><span class="place-name">Genoa, Italy</span>Europe again</h2>
-        <p>The ship docks at <strong>Genoa</strong> — the same harbour from which he had departed northward in 1929. Raman is now a legend. The Italian press covers his arrival; the Indian embassy greets him with ceremony. He is unimpressed by ceremony and impatient to reach Moscow.</p>
-      </div>
+</div><!-- /ch-postings -->
+
+<!-- ══ CH5 VOYAGE ══ -->
+<div class="ch-div">
+  <div class="ch-block">
+    <p class="ch-label" style="color:var(--c-g)">Chapter V · 1921 – 1925</p>
+    <h2>The Question on the Open Sea</h2>
+    <p>London, a cathedral, a Nicol prism, and a blue Mediterranean. The question asked mid-ocean takes seven years to prove — and changes physics forever.</p>
+  </div>
+</div>
+
+<div id="ch-voyage">
+
+<div class="stop-step" data-lat="51.514" data-lng="-.098" data-zoom="14" data-place="London — St Paul's Cathedral" data-year="1921" data-color="#73D26F" data-transit="long"
+     data-subs='[{"lat":51.5138,"lng":-0.0984,"label":"St Paul'\''s Cathedral — Whispering Gallery acoustics paper"},{"lat":51.5074,"lng":-0.1278,"label":"Royal Society, Burlington House (Piccadilly)"}]'>
+  <div class="card">
+    <div class="tag" style="background:rgba(115,210,111,.14);color:var(--c-g)"><div class="td" style="background:var(--c-g)"></div>First Voyage</div>
+    <p class="stop-yr">Summer 1921</p>
+    <h2><span class="pn" style="color:var(--c-g)">London — St Paul's Cathedral</span>Whispering Gallery acoustics</h2>
+    <p>Raman's first trip outside India. He visits <strong>St Paul's Cathedral</strong>, studies the Whispering Gallery under the dome, and co-publishes an acoustics paper in Nature that same year.</p>
+    <button class="rm-btn" aria-expanded="false">Read more <svg width="11" height="11" viewBox="0 0 12 12" fill="none"><path d="M2 4l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></button>
+    <div class="rm-body">
+      <p>The Whispering Gallery allows a whisper on one side of the dome to travel 34 metres around the curved wall to the opposite side. Raman and his co-author explain this as a guided wave, not simple reflection — the paper appears in Nature. He also visits the <strong>Royal Society at Burlington House, Piccadilly</strong>, and meets leading British physicists who already know his name from the journals. They treat him with immediate respect. He is representing Calcutta University at the Universities Congress.</p>
+      <div class="lp-chips"><span class="lp">St Paul's Cathedral</span><span class="lp">Royal Society, Burlington House</span></div>
     </div>
+  </div>
+</div>
 
-    <div class="stop-step" data-lat="57.7089" data-lng="11.9746" data-zoom="5"
-         data-place="Gothenburg, Sweden" data-year="1958" data-color="#8b5b8f">
-      <div class="stop-card">
-        <div class="stop-tag tag-honour"><div class="tag-dot"></div>Late Honour</div>
-        <p class="stop-year">1958</p>
-        <h2><span class="place-name">Gothenburg, Sweden</span>Reunion with his son</h2>
-        <p>In <strong>Gothenburg</strong> Raman pauses to meet his son Radhakrishnan, who is working in Sweden. A rare family reunion outside India. They walk the harbour, and Raman — ever the scientist — notices the colour of the Baltic sky over the water, still asking the same question he asked in 1921.</p>
-      </div>
+<div class="stop-step" data-lat="36.5" data-lng="15.0" data-zoom="5" data-place="Mediterranean Sea" data-year="1921" data-color="#73D26F" data-transit="local"
+     data-subs='[]'>
+  <div class="card">
+    <div class="tag" style="background:rgba(115,210,111,.14);color:var(--c-g)"><div class="td" style="background:var(--c-g)"></div>Eureka</div>
+    <p class="stop-yr">Return voyage, 1921</p>
+    <h2><span class="pn" style="color:var(--c-g)">The Mediterranean Sea</span>Why is the sea blue?</h2>
+    <p>Sailing home, Raman is transfixed by the <strong>deep blue opalescence</strong>. He produces a Nicol prism, quenches the sky's reflection — the water grows bluer still. Lord Rayleigh said it was merely reflected sky. Raman proves it isn't.</p>
+    <button class="rm-btn" aria-expanded="false">Read more <svg width="11" height="11" viewBox="0 0 12 12" fill="none"><path d="M2 4l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></button>
+    <div class="rm-body">
+      <p>Water molecules themselves scatter light inelastically — the seeds of the Raman Effect, seven years before it is formally proved. He writes up the observation before the ship docks. Papers appear in the Proceedings of the Royal Society and the Journal of the Optical Society of America within months. A single Nicol prism on a ship deck. No lab required. Just the right question, and the nerve to test it mid-ocean.</p>
     </div>
+  </div>
+</div>
 
-    <div class="stop-step" data-lat="55.7558" data-lng="37.6173" data-zoom="5"
-         data-place="Moscow, USSR" data-year="1958" data-color="#8b5b8f">
-      <div class="stop-card">
-        <div class="stop-tag tag-honour"><div class="tag-dot"></div>Lenin Peace Prize</div>
-        <p class="stop-year">1958</p>
-        <h2><span class="place-name">Moscow, USSR</span>The Lenin Peace Prize</h2>
-        <p>In the Soviet capital, Raman receives the <strong>Lenin Peace Prize</strong> and addresses the <strong>Soviet Academy of Sciences</strong>. He speaks about the responsibility of scientists to resist the use of their discoveries for destruction — a theme that has haunted him since Hiroshima and Nagasaki.</p>
-        <p>Soviet scientists receive him as a hero. He is polite, curious, and refuses to be used as a political symbol by anyone.</p>
-      </div>
+<div class="stop-step" data-lat="34.1377" data-lng="-118.125" data-zoom="13" data-place="Pasadena — Caltech" data-year="1924" data-color="#73D26F" data-transit="long"
+     data-subs='[{"lat":34.1377,"lng":-118.1253,"label":"Caltech campus — Millikan'\''s guest, 4 months"},{"lat":43.653,"lng":-79.383,"label":"Toronto — British Association, FRS elected"},{"lat":39.9526,"lng":-75.1652,"label":"Philadelphia — Franklin Institute centenary"}]'>
+  <div class="card">
+    <div class="tag" style="background:rgba(115,210,111,.14);color:var(--c-g)"><div class="td" style="background:var(--c-g)"></div>North America</div>
+    <p class="stop-yr">1924</p>
+    <h2><span class="pn" style="color:var(--c-g)">Pasadena, California — Caltech</span>FRS &amp; four months in the California sun</h2>
+    <p>Elected <strong>Fellow of the Royal Society</strong> (only the fourth Indian), Raman tours North America: the British Association in <strong>Toronto</strong>, then four months as Millikan's guest at Caltech.</p>
+    <button class="rm-btn" aria-expanded="false">Read more <svg width="11" height="11" viewBox="0 0 12 12" fill="none"><path d="M2 4l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></button>
+    <div class="rm-body">
+      <p>At the Franklin Institute centenary in Philadelphia, Millikan is immediately struck by Raman's range. He invites him to Pasadena for four months. Raman lectures, builds a global network, and returns to Calcutta carrying not hope but certainty — that the Nobel Prize is coming, and which experiment will win it.</p>
+      <div class="lp-chips"><span class="lp">Caltech campus, Pasadena</span><span class="lp">British Association, Toronto</span><span class="lp">Franklin Institute, Philadelphia</span></div>
     </div>
+  </div>
+</div>
 
-    <div class="stop-step" data-lat="47.4979" data-lng="19.0402" data-zoom="5"
-         data-place="Budapest, Hungary" data-year="1958" data-color="#8b5b8f">
-      <div class="stop-card">
-        <div class="stop-tag tag-honour"><div class="tag-dot"></div>Late Honour</div>
-        <p class="stop-year">1958</p>
-        <h2><span class="place-name">Budapest, Hungary</span>Hungarian Academy of Sciences</h2>
-        <p>The <strong>Hungarian Academy of Sciences</strong> honours Raman with a fellowship. Budapest, with its Danube bridges and domed parliament, is his last major European stop. He will not travel internationally again after this journey.</p>
-        <p>He returns to Bangalore and to the Raman Research Institute, which he runs on its own funds, answerable to no ministry.</p>
-      </div>
+</div><!-- /ch-voyage -->
+
+<div class="q-break">
+  <blockquote>"A voyage to Europe in the summer of 1921 gave me the first opportunity of observing the wonderful blue opalescence of the Mediterranean Sea."</blockquote>
+  <cite>— C.V. Raman · Nobel Lecture · Stockholm · 11 December 1930</cite>
+</div>
+
+<!-- ══ CH6 NOBEL ══ -->
+<div class="ch-div">
+  <div class="ch-block">
+    <p class="ch-label" style="color:var(--c-y)">Chapter VI · 1928 – 1931</p>
+    <h2>Discovery &amp; the Nobel Route</h2>
+    <p>Through Mysore, Bombay, Egypt, Rome, Genoa, Bristol — to the Nobel stage in Stockholm where India had no flag.</p>
+  </div>
+</div>
+
+<div id="ch-nobel">
+
+<div class="stop-step" data-lat="22.5674" data-lng="88.3601" data-zoom="16" data-place="IACS Laboratory, Calcutta — Discovery" data-year="28 February 1928" data-color="#F9C74F" data-transit="long"
+     data-subs='[{"lat":22.5674,"lng":88.3601,"label":"IACS — the bench where the Raman Effect was proved"}]'>
+  <div class="card">
+    <div class="tag" style="background:rgba(249,199,79,.16);color:var(--c-y)"><div class="td" style="background:var(--c-y)"></div>Discovery</div>
+    <p class="stop-yr">28 February 1928</p>
+    <h2><span class="pn" style="color:var(--c-y)">IACS Laboratory, Bow Bazar</span>A new type of secondary radiation</h2>
+    <p>Raman and K.S. Krishnan observe that scattered photons carry a <strong>shifted wavelength</strong>. One-page letter to Nature, published 31 March 1928. India marks this day as <strong>National Science Day</strong>.</p>
+  </div>
+</div>
+
+<div class="stop-step" data-lat="12.296" data-lng="76.639" data-zoom="12" data-place="Mysore" data-year="1929" data-color="#F9C74F" data-transit="long"
+     data-subs='[{"lat":12.296,"lng":76.639,"label":"Mysore Palace / Durbar Hall — Rajasabha Bhushana title"}]'>
+  <div class="card">
+    <div class="tag" style="background:rgba(249,199,79,.16);color:var(--c-y)"><div class="td" style="background:var(--c-y)"></div>Nobel Route</div>
+    <p class="stop-yr">1929</p>
+    <h2><span class="pn" style="color:var(--c-y)">Mysore — the Durbar</span>The gold-brocaded coat</h2>
+    <p>The Maharaja confers the title <strong>"Rajasabha Bhushana"</strong> with a gold-brocaded coat and shawl. Raman treasures this robe more than any British knighthood and keeps the photograph of himself in durbar regalia all his life.</p>
+  </div>
+</div>
+
+<div class="stop-step" data-lat="18.922" data-lng="72.834" data-zoom="14" data-place="Bombay — Apollo Bunder" data-year="1929" data-color="#F9C74F" data-transit="long"
+     data-subs='[{"lat":18.9219,"lng":72.8347,"label":"Apollo Bunder (Gateway of India area) — sailed for Europe"}]'>
+  <div class="card">
+    <div class="tag" style="background:rgba(249,199,79,.16);color:var(--c-y)"><div class="td" style="background:var(--c-y)"></div>Nobel Route</div>
+    <p class="stop-yr">1929</p>
+    <h2><span class="pn" style="color:var(--c-y)">Bombay — Apollo Bunder</span>Setting sail</h2>
+    <p>Raman and Lokasundari board ship at <strong>Apollo Bunder</strong>. Stockholm tickets already booked. The Nobel announcement is still months away.</p>
+  </div>
+</div>
+
+<div class="stop-step" data-lat="29.977" data-lng="31.132" data-zoom="11" data-place="Giza, Egypt" data-year="1929" data-color="#F9C74F" data-transit="long"
+     data-subs='[{"lat":29.9773,"lng":31.1325,"label":"Pyramids of Giza — Raman visits en route to Europe"},{"lat":30.044,"lng":31.235,"label":"Cairo city"}]'>
+  <div class="card">
+    <div class="tag" style="background:rgba(249,199,79,.16);color:var(--c-y)"><div class="td" style="background:var(--c-y)"></div>Nobel Route</div>
+    <p class="stop-yr">En route, 1929</p>
+    <h2><span class="pn" style="color:var(--c-y)">Egypt — Suez &amp; Cairo</span>Pyramids on the way to the Prize</h2>
+    <p>Through the Suez Canal to Cairo. Raman visits the <strong>Pyramids at Giza</strong> — seeing in the ancient Egyptians a kindred obsession with geometry and the behaviour of light and shadow.</p>
+  </div>
+</div>
+
+<div class="stop-step" data-lat="41.902" data-lng="12.496" data-zoom="13" data-place="Rome, Italy" data-year="1929" data-color="#F9C74F" data-transit="long"
+     data-subs='[{"lat":41.9029,"lng":12.4534,"label":"Vatican Museums — Syrian glass vase observation"},{"lat":41.8902,"lng":12.4922,"label":"Roman ruins — history and science intertwined"}]'>
+  <div class="card">
+    <div class="tag" style="background:rgba(249,199,79,.16);color:var(--c-y)"><div class="td" style="background:var(--c-y)"></div>Nobel Route</div>
+    <p class="stop-yr">1929</p>
+    <h2><span class="pn" style="color:var(--c-y)">Rome, Italy</span>Museums &amp; ancient glass</h2>
+    <p>At the Vatican galleries, Raman notices a <strong>Syrian glass vase</strong> — its iridescent surface is lamellar interference, the same phenomenon he is studying. He arranges for flakes to be sent to Bangalore for analysis later.</p>
+  </div>
+</div>
+
+<div class="stop-step" data-lat="44.405" data-lng="8.946" data-zoom="12" data-place="Genoa, Italy" data-year="1929" data-color="#F9C74F" data-transit="local"
+     data-subs='[{"lat":44.4056,"lng":8.9463,"label":"Genoa harbour — northward to Bristol and Stockholm"}]'>
+  <div class="card">
+    <div class="tag" style="background:rgba(249,199,79,.16);color:var(--c-y)"><div class="td" style="background:var(--c-y)"></div>Nobel Route</div>
+    <p class="stop-yr">1929</p>
+    <h2><span class="pn" style="color:var(--c-y)">Genoa</span>Gateway to the north</h2>
+    <p>From Genoa's harbour, northward. The Ligurian coast frames the same <strong>blue-green Mediterranean</strong> that captivated him in 1921 — the question posed on that return voyage is now the answer that wins the Prize.</p>
+  </div>
+</div>
+
+<div class="stop-step" data-lat="51.454" data-lng="-2.588" data-zoom="13" data-place="Bristol, England" data-year="1929" data-color="#F9C74F" data-transit="long"
+     data-subs='[{"lat":51.454,"lng":-2.588,"label":"Faraday Society meeting, Bristol — landmark lecture"}]'>
+  <div class="card">
+    <div class="tag" style="background:rgba(249,199,79,.16);color:var(--c-y)"><div class="td" style="background:var(--c-y)"></div>Nobel Route</div>
+    <p class="stop-yr">1929</p>
+    <h2><span class="pn" style="color:var(--c-y)">Bristol, England</span>Faraday Society address</h2>
+    <p>At the <strong>Faraday Society</strong> meeting, Raman delivers his most comprehensive public exposition of the Raman Effect. The room is electrified. Stockholm cannot be far.</p>
+  </div>
+</div>
+
+<div class="stop-step" data-lat="59.329" data-lng="18.068" data-zoom="12" data-place="Stockholm, Sweden" data-year="10 December 1930" data-color="#F9C74F" data-transit="long"
+     data-subs='[{"lat":59.3328,"lng":18.0649,"label":"Stockholm Concert Hall — Nobel ceremony"},{"lat":59.3272,"lng":18.054,"label":"Stockholm City Hall — Nobel banquet"}]'>
+  <div class="card">
+    <div class="tag" style="background:rgba(249,199,79,.22);color:var(--c-y)"><div class="td" style="background:var(--c-y)"></div>Nobel Prize</div>
+    <p class="stop-yr">10 December 1930</p>
+    <h2><span class="pn" style="color:var(--c-y)">Stockholm, Sweden</span>First Asian Nobel in science</h2>
+    <p>King Gustav V places the medal in Raman's hands. As applause fills the Concert Hall, he sees the British Union Jack above his seat. India has no flag. He weeps. He is forty-two.</p>
+    <button class="rm-btn" aria-expanded="false">Read more <svg width="11" height="11" viewBox="0 0 12 12" fill="none"><path d="M2 4l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></button>
+    <div class="rm-body">
+      <p>At the <strong>Nobel banquet in Stockholm City Hall</strong>, Raman tells the assembled laureates that the greatest obstacle to science in his country is poverty — and the greatest resource is the curiosity of its people. He is the first Asian, the first person from outside Europe or North America, to win the Nobel Prize in Physics. After the ceremony he travels to Uppsala as the guest of Manne Siegbahn before sailing home to an India that receives him with tremendous celebration.</p>
+      <div class="lp-chips"><span class="lp">Stockholm Concert Hall</span><span class="lp">Stockholm City Hall (banquet)</span><span class="lp">Uppsala University (Siegbahn)</span></div>
     </div>
+  </div>
+</div>
 
-    <div class="stop-step" data-lat="28.6139" data-lng="77.209" data-zoom="6"
-         data-place="Delhi — final lecture journey" data-year="1970" data-color="#8b5b8f">
-      <div class="stop-card">
-        <div class="stop-tag tag-honour"><div class="tag-dot"></div>Final Lectures</div>
-        <p class="stop-year">Early 1970</p>
-        <h2><span class="place-name">Kanpur & Delhi</span>The last lecture tour</h2>
-        <p>In the early weeks of 1970, Raman undertakes his final domestic journey — to <strong>Kanpur and Delhi</strong> — to lecture, to meet students, to insist one more time that Indian science must be free from political interference and industrial pressure.</p>
-        <p>He returns to the Raman Research Institute in Bangalore. In October he suffers a heart attack in his laboratory. He asks to be moved into the garden, surrounded by his students and his rose bushes.</p>
-      </div>
+</div><!-- /ch-nobel -->
+
+<!-- ══ CH7 BANGALORE ══ -->
+<div class="ch-div">
+  <div class="ch-block">
+    <p class="ch-label" style="color:var(--c-o)">Chapter VII · 1933 – 1970</p>
+    <h2>Bangalore — Garden City, Final Laboratory</h2>
+    <p>He planted trees on a campus, visited diamond mines in Panna, refused government money, and built the last and greatest institution of his life.</p>
+  </div>
+</div>
+
+<div id="ch-bangalore">
+
+<div class="stop-step" data-lat="13.021" data-lng="77.567" data-zoom="15" data-place="Indian Institute of Science, Bangalore" data-year="1933–1948" data-color="#F4873B" data-transit="long"
+     data-subs='[{"lat":13.0219,"lng":77.5671,"label":"IISc main quad — Raman plants tree-lined avenues"},{"lat":13.0215,"lng":77.5672,"label":"Physics department, IISc"},{"lat":13.0186,"lng":77.5682,"label":"Director'\''s bungalow"},{"lat":13.0278,"lng":77.5665,"label":"Indian Academy of Sciences (founded 1934)"}]'>
+  <div class="card">
+    <div class="tag" style="background:rgba(244,135,59,.16);color:var(--c-o)"><div class="td" style="background:var(--c-o)"></div>Institution Builder</div>
+    <p class="stop-yr">1933 – 1948</p>
+    <h2><span class="pn" style="color:var(--c-o)">Indian Institute of Science, Bangalore</span>The director plants trees</h2>
+    <p>His first act as director: order saplings planted across the campus. Those trees are now broad avenues. He founds the <strong>Indian Academy of Sciences</strong> in 1934. No government grants. Not a paisa.</p>
+    <button class="rm-btn" aria-expanded="false">Read more <svg width="11" height="11" viewBox="0 0 12 12" fill="none"><path d="M2 4l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></button>
+    <div class="rm-body">
+      <p>Ousted from the directorship by academic politics in 1937, Raman continues as Professor of Physics at IISc for eleven more years. He studies diamond lattices, the optics of crystals, and the iridescence of ancient Syrian glass. He snatches G.N. Ramachandran from the electrical engineering department: "He's a bit too bright to be in yours." Ramachandran becomes one of India's finest scientific minds. The Indian Academy of Sciences meets in small university towns across India to "galvanize the younger generation towards science."</p>
+      <div class="lp-chips"><span class="lp">IISc main campus</span><span class="lp">Physics dept, IISc</span><span class="lp">Director's bungalow</span><span class="lp">Indian Academy of Sciences</span></div>
     </div>
+  </div>
+</div>
 
-    <div class="stop-step" data-lat="13.0100" data-lng="77.5700" data-zoom="11"
-         data-place="Raman Research Institute, Bangalore" data-year="1970" data-color="#c9893a">
-      <div class="stop-card">
-        <div class="stop-tag tag-legacy"><div class="tag-dot"></div>Legacy</div>
-        <p class="stop-year">21 November 1970</p>
-        <h2><span class="place-name">Raman Research Institute, Bangalore</span>"There will be others to enjoy them."</h2>
-        <p>A few days before his death, Raman plants a papaya tree in the grounds of his institute. <em>"I will not be here when it bears fruit,"</em> he says, <em>"but there will be others to enjoy them."</em></p>
-        <p>He dies on 21 November 1970, aged 82, in the gardens he loved. By then, <strong>10,000 scientific papers</strong> have been published on the Raman Effect. The institute he built without government money continues as a flourishing research centre — his most durable monument.</p>
-      </div>
-    </div>
+<div class="stop-step" data-lat="24.720" data-lng="80.181" data-zoom="11" data-place="Panna Diamond Mines, MP" data-year="1942" data-color="#F4873B" data-transit="long"
+     data-subs='[{"lat":24.720,"lng":80.181,"label":"Panna diamond mines — Vindhyan plateau fieldwork"}]'>
+  <div class="card">
+    <div class="tag" style="background:rgba(244,135,59,.16);color:var(--c-o)"><div class="td" style="background:var(--c-o)"></div>Research Journey</div>
+    <p class="stop-yr">1942</p>
+    <h2><span class="pn" style="color:var(--c-o)">Panna, Madhya Pradesh</span>Into the diamond fields</h2>
+    <p>Wartime India. Raman travels to <strong>Panna's diamond mines</strong> on the Vindhyan plateau to study gem diamonds at their source — feeding directly into his work on diamond lattice vibrations.</p>
+  </div>
+</div>
 
-  </div><!-- /ch-final -->
+<div class="stop-step" data-lat="13.011" data-lng="77.571" data-zoom="16" data-place="Raman Research Institute, Bangalore" data-year="1948–1970" data-color="#F4873B" data-transit="local"
+     data-subs='[{"lat":13.0111,"lng":77.5708,"label":"Raman Research Institute — no govt money, ever"},{"lat":13.0112,"lng":77.571,"label":"Garden — where the papaya tree was planted, Nov 1970"}]'>
+  <div class="card">
+    <div class="tag" style="background:rgba(244,135,59,.16);color:var(--c-o)"><div class="td" style="background:var(--c-o)"></div>Legacy</div>
+    <p class="stop-yr">1948 – 21 November 1970</p>
+    <h2><span class="pn" style="color:var(--c-o)">Raman Research Institute, Bangalore</span>"There will be others to enjoy them."</h2>
+    <p>Raman founds and funds his own institute — <strong>no government money</strong>. A few days before his death, aged 82, he plants a papaya tree in the garden: <em>"I will not be here when it bears fruit, but there will be others."</em></p>
+  </div>
+</div>
 
+</div><!-- /ch-bangalore -->
+
+<!-- ══ CH8 FINAL ══ -->
+<div class="ch-div">
+  <div class="ch-block">
+    <p class="ch-label" style="color:var(--c-r)">Chapter VIII · 1958</p>
+    <h2>The Lenin Prize Tour</h2>
+    <p>Bombay · Genoa · Gothenburg · Moscow · Budapest. His last great international journey.</p>
+  </div>
+</div>
+
+<div id="ch-final">
+
+<div class="stop-step" data-lat="55.755" data-lng="37.617" data-zoom="11" data-place="Moscow, USSR" data-year="1958" data-color="#E74C3C" data-transit="long"
+     data-subs='[{"lat":55.755,"lng":37.617,"label":"Soviet Academy of Sciences — address"},{"lat":55.752,"lng":37.617,"label":"Kremlin area — Lenin Peace Prize ceremony"}]'>
+  <div class="card">
+    <div class="tag" style="background:rgba(231,76,60,.16);color:var(--c-r)"><div class="td" style="background:var(--c-r)"></div>Late Honour</div>
+    <p class="stop-yr">1958</p>
+    <h2><span class="pn" style="color:var(--c-r)">Moscow, USSR</span>The Lenin Peace Prize</h2>
+    <p>At seventy, Raman receives the <strong>Lenin Peace Prize</strong> and addresses the Soviet Academy of Sciences. He refuses to be used as a political symbol. He speaks of scientists' responsibility to resist the weaponisation of their work.</p>
+  </div>
+</div>
+
+<div class="stop-step" data-lat="47.497" data-lng="19.040" data-zoom="12" data-place="Budapest, Hungary" data-year="1958" data-color="#E74C3C" data-transit="local"
+     data-subs='[{"lat":47.497,"lng":19.040,"label":"Hungarian Academy of Sciences — fellowship conferred"}]'>
+  <div class="card">
+    <div class="tag" style="background:rgba(231,76,60,.16);color:var(--c-r)"><div class="td" style="background:var(--c-r)"></div>Late Honour</div>
+    <p class="stop-yr">1958</p>
+    <h2><span class="pn" style="color:var(--c-r)">Budapest, Hungary</span>Hungarian Academy fellowship</h2>
+    <p>The <strong>Hungarian Academy of Sciences</strong> confers a fellowship. Raman's final European stop. He returns to Bangalore and to the rose bushes he loves.</p>
+  </div>
+</div>
+
+</div><!-- /ch-final -->
 </div><!-- /scroll-body -->
 
-<!-- ── END QUOTE ─────────────────────────────────── -->
-<div id="end-section">
-  <p class="end-quote">"A voyage to Europe in the summer of 1921 gave me the first opportunity of observing the wonderful blue opalescence of the Mediterranean Sea."</p>
+<div id="end">
+  <p class="end-q">"A voyage to Europe gave me the first opportunity of observing the wonderful blue opalescence of the Mediterranean Sea — the same phenomenon that led, seven years later, to the discovery that bears my name."</p>
   <p class="end-cite">— C.V. Raman · Nobel Lecture · Stockholm · 11 December 1930</p>
-  <p class="end-footer">
-    Sources: <a href="https://amzn.to/4vzPLVi" target="_blank"><em>C.V. Raman</em> by Uma Parameswaran (Penguin Books)</a> &middot; Britannica &middot;
-    ACS National Historical Landmark citation &middot; Nobel Prize Archives &middot;
-    Indian Academy of Sciences records<br/>
-    Map tiles &copy; <a href="https://www.openstreetmap.org/copyright" target="_blank">OpenStreetMap contributors</a>
-  </p>
+  <p class="end-foot">Sources: <em>C.V. Raman</em> by Uma Parameswaran (Penguin Books) · Britannica · Nobel Prize Archives · Indian Academy of Sciences<br/>
+  Map: &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a></p>
 </div>
 
-<!-- ── TIMELINE STRIP (fixed bottom) ──────────────── -->
-<div id="timeline-strip" class="hidden">
-  <div id="tl-svg-wrap">
-    <svg id="tl-svg" viewBox="0 0 900 56" preserveAspectRatio="xMidYMid meet" aria-label="Timeline"></svg>
-  </div>
+<div id="tl-strip" class="hidden">
+  <svg id="tl-svg" viewBox="0 0 900 56" preserveAspectRatio="xMidYMid meet"></svg>
+  <div id="tl-label"></div>
 </div>
+<div id="we-tip"></div>
 
-<!-- ── SCRIPTS ────────────────────────────────────── -->
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
-/* ─── DATA ──────────────────────────────────────── */
-const STOPS = [];   // filled from DOM
-const CHAPTERS = [
-  { id:"ch-childhood",   label:"Childhood",         years:[1888,1903], color:"#b45f2a" },
-  { id:"ch-government",  label:"Government",         years:[1907,1917], color:"#287267" },
-  { id:"ch-mediterranean",label:"Mediterranean",     years:[1921,1921], color:"#2f5f9e" },
-  { id:"ch-america",     label:"N. America",         years:[1924,1925], color:"#2f5f9e" },
-  { id:"ch-nobel",       label:"Nobel",              years:[1928,1931], color:"#2f5f9e" },
-  { id:"ch-builder",     label:"Builder",            years:[1933,1956], color:"#287267" },
-  { id:"ch-final",       label:"Final",              years:[1958,1970], color:"#8b5b8f" },
+
+
+
+</script>
+<script>
+/* ── MAP INIT ── */
+const map = L.map('map-bg',{
+  scrollWheelZoom:false,zoomControl:false,dragging:false,
+  doubleClickZoom:false,keyboard:false,fadeAnimation:true,zoomAnimation:true
+}).setView([20,80],4);
+
+L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_nolabels/{z}/{x}/{y}{r}.png',
+  {attribution:'&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a> &copy; <a href="https://carto.com/attributions">CARTO</a>',subdomains:'abcd',maxZoom:19}).addTo(map);
+L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_only_labels/{z}/{x}/{y}{r}.png',
+  {subdomains:'abcd',maxZoom:19,opacity:0.3,attribution:''}).addTo(map);
+L.control.zoom({position:'bottomright'}).addTo(map);
+
+/* Start with markers hidden — hero is visible */
+document.body.classList.add('hero-visible');
+
+/* ── CHAPTER DATA ── */
+const CHS=[
+  {id:'ch-childhood',years:[1888,1902],color:'#9B5DE5'},
+  {id:'ch-madras',   years:[1903,1907],color:'#5E60CE'},
+  {id:'ch-calcutta', years:[1907,1933],color:'#4CC9F0'},
+  {id:'ch-postings', years:[1909,1912],color:'#4ADEDE'},
+  {id:'ch-voyage',   years:[1921,1925],color:'#73D26F'},
+  {id:'ch-nobel',    years:[1928,1931],color:'#F9C74F'},
+  {id:'ch-bangalore',years:[1933,1970],color:'#F4873B'},
+  {id:'ch-final',    years:[1958,1958],color:'#E74C3C'},
 ];
 
-/* ─── MAP INIT ──────────────────────────────────── */
-const map = L.map("map-bg", {
-  scrollWheelZoom: false,
-  zoomControl: false,
-  dragging: false,
-  doubleClickZoom: false,
-  keyboard: false,
-  attributionControl: true,
-}).setView([25, 65], 3);
+const WORLD_EVENTS=[
+  {year:1905,label:'Partition of Bengal',color:'rgba(255,255,255,.5)'},
+  {year:1914,label:'World War I begins',color:'#ff6b6b'},
+  {year:1918,label:'WWI ends / Spanish Flu',color:'#ff6b6b'},
+  {year:1919,label:'Amritsar Massacre',color:'rgba(255,200,100,.7)'},
+  {year:1928,label:'Raman Effect discovered',color:'#F9C74F'},
+  {year:1930,label:'Nobel Prize / Salt March',color:'#F9C74F'},
+  {year:1939,label:'World War II begins',color:'#ff6b6b'},
+  {year:1945,label:'WWII ends',color:'#ff6b6b'},
+  {year:1947,label:'Indian Independence',color:'#F4873B'},
+  {year:1962,label:'Sino-Indian War',color:'rgba(255,255,255,.4)'},
+];
 
-L.tileLayer("https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png", {
-  attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>',
-  subdomains: "abcd",
-  maxZoom: 19,
-}).addTo(map);
+/* ── DURATION → DOT SIZE + ZOOM ADJUSTMENT ──
+   Short stay (≤1 yr)  : small dot, lower zoom (wider context)
+   Long stay  (≥15 yr) : big dot,   higher zoom (local detail)
+*/
+const STOP_META={
+  //  idx: {yrs, baseZoom}   baseZoom is the data-zoom on each step — we ADJUST it here
+  0:{yrs:1},   // Trichy birth
+  1:{yrs:1},   // Swamimalai
+  2:{yrs:10},  // Vizag
+  3:{yrs:4},   // Madras
+  4:{yrs:10},  // Calcutta finance
+  5:{yrs:16},  // Calcutta Palit
+  6:{yrs:1},   // Rangoon
+  7:{yrs:2},   // Nagpur
+  8:{yrs:0.2}, // London
+  9:{yrs:0.1}, // Mediterranean
+  10:{yrs:0.3},// Caltech
+  11:{yrs:0.1},// IACS discovery
+  12:{yrs:0.2},// Mysore
+  13:{yrs:0.1},// Bombay
+  14:{yrs:0.1},// Egypt
+  15:{yrs:0.1},// Rome
+  16:{yrs:0.1},// Genoa
+  17:{yrs:0.1},// Bristol
+  18:{yrs:0.3},// Stockholm
+  19:{yrs:15}, // IISc
+  20:{yrs:0.5},// Panna
+  21:{yrs:22}, // RRI Bangalore
+  22:{yrs:0.3},// Moscow
+  23:{yrs:0.3},// Budapest
+};
 
-L.control.zoom({ position: "bottomright" }).addTo(map);
+function dotSize(idx){
+  const yrs=(STOP_META[idx]||{yrs:1}).yrs;
+  // 10px (≤0.1 yr) → 22px (≥20 yr)
+  return Math.round(10+Math.min(yrs,20)*0.6);
+}
 
-/* ─── MARKER REGISTRY ───────────────────────────── */
-const markerMap = {};     // key = step element dataset reference
-const routeLayers = {};   // chapter-id => polyline
+// Zoom adjustment: short stays get -2 to -3 (zoom out for context)
+//                 long stays  get +0 to +2 (zoom in for local detail)
+function zoomAdjust(idx, baseZoom){
+  const yrs=(STOP_META[idx]||{yrs:1}).yrs;
+  if(yrs<=0.2) return Math.max(2, baseZoom-3);  // fleeting visit → zoom out
+  if(yrs<=1)   return Math.max(3, baseZoom-1);  // short stay → slight zoom out
+  if(yrs>=15)  return Math.min(16,baseZoom+1);  // long residence → zoom in
+  return baseZoom;                               // default unchanged
+}
 
-/* Build all markers and routes after DOM parse */
-function buildAllMarkersAndRoutes() {
-  const allSteps = document.querySelectorAll(".stop-step");
+/* ── SMOOTH CAMERA ──
+   local  <3°  → gentle pan
+   region 3-20° → smooth flyTo
+   ocean  >20° → zoom-out arc → zoom-in
+*/
+let prevLat=20, prevLng=80, prevZoom=4, flyTimer=null;
+function gd(a,b){const dx=a[0]-b[0],dy=a[1]-b[1];return Math.sqrt(dx*dx+dy*dy)}
 
-  // Group by chapter
-  const chapterSteps = {};
-  allSteps.forEach(step => {
-    const chId = step.closest("[id]")?.id || "misc";
-    if (!chapterSteps[chId]) chapterSteps[chId] = [];
-    chapterSteps[chId].push(step);
-  });
+function smoothFly(lat,lng,zoom,transit){
+  if(flyTimer){clearTimeout(flyTimer);flyTimer=null}
+  const d=gd([lat,lng],[prevLat,prevLng]);
 
-  allSteps.forEach((step, i) => {
-    const lat  = parseFloat(step.dataset.lat);
-    const lng  = parseFloat(step.dataset.lng);
-    const color = step.dataset.color || "#c9893a";
+  if(transit==='init'){
+    map.setView([lat,lng],zoom,{animate:false});
+  } else if(transit==='local'||d<2.5){
+    map.flyTo([lat,lng],zoom,{duration:1.1,easeLinearity:0.55});
+  } else if(d>20||transit==='long'){
+    const midZ=Math.max(2,Math.min(prevZoom,zoom)-Math.min(5,Math.floor(d/6)));
+    const mid=[(lat+prevLat)/2,(lng+prevLng)/2];
+    map.flyTo(mid,midZ,{duration:0.85,easeLinearity:0.42});
+    flyTimer=setTimeout(()=>{
+      map.flyTo([lat,lng],zoom,{duration:1.3,easeLinearity:0.36});
+      flyTimer=null;
+    },950);
+  } else {
+    map.flyTo([lat,lng],zoom,{duration:1.3,easeLinearity:0.44});
+  }
+  prevLat=lat; prevLng=lng; prevZoom=zoom;
+}
 
-    const icon = L.divIcon({
-      className: "",
-      html: `<div class="cv-marker" style="background:${color}" id="marker-${i}"></div>`,
-      iconSize: [28,28],
-      iconAnchor: [14,14],
+/* ── MARKERS & ROUTES ── */
+const mainMkrs={}, subMkrs={}, routeLines={};
+let activeIdx=null, activeChId=null;
+const stepNodes=[]; // ordered list for timeline jump
+
+function buildAll(){
+  const steps=document.querySelectorAll('.stop-step');
+  const byChapter={};
+
+  steps.forEach((step,idx)=>{
+    stepNodes.push(step);
+    const lat=+step.dataset.lat, lng=+step.dataset.lng;
+    const color=step.dataset.color||'#F9C74F';
+    const chId=step.closest('[id]')?.id;
+    step.dataset.idx=idx;
+
+    const sz=dotSize(idx);
+    const div=document.createElement('div');
+    div.className='cv-dot';
+    div.style.cssText=`background:${color};width:${sz}px;height:${sz}px`;
+    div.id='md-'+idx;
+    const ico=L.divIcon({className:'',html:div.outerHTML,iconSize:[sz,sz],iconAnchor:[sz/2,sz/2]});
+    mainMkrs[idx]={m:L.marker([lat,lng],{icon:ico,zIndexOffset:50}).addTo(map),lat,lng,color,sz};
+
+    let subs=[]; try{subs=JSON.parse(step.dataset.subs||'[]')}catch(e){}
+    subMkrs[idx]=subs.map(s=>{
+      const d2=document.createElement('div'); d2.className='cv-sub'; d2.style.background=color;
+      const i2=L.divIcon({className:'',html:d2.outerHTML,iconSize:[7,7],iconAnchor:[3,3]});
+      const sm=L.marker([s.lat,s.lng],{icon:i2,zIndexOffset:10}).addTo(map);
+      sm.bindPopup(`<strong>${s.label}</strong>`);
+      return sm;
     });
 
-    const m = L.marker([lat, lng], { icon, zIndexOffset: 100 + i }).addTo(map);
-    m.bindPopup(`<strong>${step.dataset.place}</strong><br>${step.dataset.year}`);
-    step.dataset.markerIndex = i;
-    markerMap[i] = m;
+    if(!byChapter[chId]) byChapter[chId]=[];
+    byChapter[chId].push([lat,lng]);
   });
 
-  // Build chapter route polylines (hidden initially)
-  CHAPTERS.forEach(ch => {
-    const steps = chapterSteps[ch.id] || [];
-    if (steps.length < 2) return;
-    const latlngs = steps.map(s => [parseFloat(s.dataset.lat), parseFloat(s.dataset.lng)]);
-    const pl = L.polyline(latlngs, {
-      color: ch.color,
-      weight: 2.5,
-      opacity: 0,
-      dashArray: "8 6",
-    }).addTo(map);
-    routeLayers[ch.id] = pl;
+  CHS.forEach(ch=>{
+    const pts=byChapter[ch.id]||[];
+    if(pts.length<2) return;
+    routeLines[ch.id]=L.polyline(pts,{color:ch.color,weight:1.8,opacity:0,dashArray:'8 5',smoothFactor:2}).addTo(map);
   });
 }
 
-/* ─── ACTIVE STATE ──────────────────────────────── */
-let activeChapterId = null;
-let activeMarkerEl = null;
+/* ── ACTIVATE STEP ── */
+function activateStep(step){
+  const idx=+step.dataset.idx;
+  if(idx===activeIdx) return;
 
-function activateStep(step) {
-  const lat  = parseFloat(step.dataset.lat);
-  const lng  = parseFloat(step.dataset.lng);
-  const zoom = parseInt(step.dataset.zoom) || 5;
-  const color = step.dataset.color || "#c9893a";
-  const i    = parseInt(step.dataset.markerIndex);
-  const chId = step.closest("[id]")?.id;
-
-  // Fly map
-  map.flyTo([lat, lng], zoom, { duration: 1.2, easeLinearity: 0.4 });
-
-  // De-highlight previous marker
-  if (activeMarkerEl) activeMarkerEl.classList.remove("cv-marker-active");
-
-  // Highlight new marker
-  const el = document.getElementById(`marker-${i}`);
-  if (el) {
-    el.classList.add("cv-marker-active");
-    el.style.background = color;
-    activeMarkerEl = el;
+  if(activeIdx!==null){
+    const el=document.getElementById('md-'+activeIdx);
+    if(el) el.classList.remove('active');
+    (subMkrs[activeIdx]||[]).forEach(sm=>{const e=sm.getElement();if(e)e.classList.remove('vis')});
+    if(activeChId&&routeLines[activeChId]) routeLines[activeChId].setStyle({opacity:0});
   }
 
-  // Show/hide routes
-  if (chId !== activeChapterId) {
-    // Fade out previous
-    if (activeChapterId && routeLayers[activeChapterId]) {
-      routeLayers[activeChapterId].setStyle({ opacity: 0 });
-    }
-    // Fade in new
-    if (routeLayers[chId]) {
-      routeLayers[chId].setStyle({ opacity: 0.65 });
-    }
-    activeChapterId = chId;
-  }
+  const lat=+step.dataset.lat, lng=+step.dataset.lng;
+  const baseZoom=+step.dataset.zoom||6;
+  const zoom=zoomAdjust(idx,baseZoom);          // ← duration-aware zoom
+  const color=step.dataset.color||'#F9C74F';
+  const transit=step.dataset.transit||'medium';
+  const chId=step.closest('[id]')?.id;
 
-  // Update ticker
-  const ticker = document.getElementById("location-ticker");
-  document.getElementById("ticker-dot").style.background = color;
-  document.getElementById("ticker-year").textContent = step.dataset.year;
-  document.getElementById("ticker-place").textContent = step.dataset.place;
-  ticker.classList.add("visible");
+  smoothFly(lat,lng,zoom,transit);
+  activeIdx=idx; activeChId=chId;
 
-  // Active card
-  document.querySelectorAll(".stop-card.active").forEach(c => c.classList.remove("active"));
-  step.querySelector(".stop-card")?.classList.add("active");
+  const delay=transit==='long'?980:200;
+  setTimeout(()=>{
+    const el=document.getElementById('md-'+idx);
+    if(el) el.classList.add('active');
+    (subMkrs[idx]||[]).forEach(sm=>{const e=sm.getElement();if(e)e.classList.add('vis')});
+  },delay);
 
-  // Timeline
-  renderTimeline(step.dataset.year, color);
+  if(routeLines[chId]) routeLines[chId].setStyle({opacity:0.5});
+
+  document.getElementById('t-dot').style.background=color;
+  document.getElementById('t-yr').style.color=color;
+  document.getElementById('t-yr').textContent=step.dataset.year;
+  document.getElementById('t-pl').textContent=step.dataset.place;
+  document.getElementById('ticker').classList.add('on');
+
+  document.querySelectorAll('.card.active').forEach(c=>c.classList.remove('active'));
+  step.querySelector('.card')?.classList.add('active');
+  renderTL(step.dataset.year,color);
 }
 
-/* ─── INTERSECTION OBSERVER ─────────────────────── */
-let io;
-function initObserver() {
-  io = new IntersectionObserver(entries => {
-    // Find the entry with the most intersection
-    const best = entries
-      .filter(e => e.isIntersecting)
-      .sort((a, b) => b.intersectionRatio - a.intersectionRatio)[0];
-    if (best) activateStep(best.target);
-  }, {
-    threshold: [0.3, 0.5, 0.7],
-    rootMargin: "-10% 0px -20% 0px",
+/* ── INTERSECTION OBSERVER ── */
+function initIO(){
+  const io=new IntersectionObserver(entries=>{
+    let best=null,bestR=0;
+    entries.forEach(e=>{if(e.isIntersecting&&e.intersectionRatio>bestR){bestR=e.intersectionRatio;best=e.target}});
+    if(best) activateStep(best);
+  },{threshold:[0.2,0.45,0.7],rootMargin:'-8% 0px -18% 0px'});
+  document.querySelectorAll('.stop-step').forEach(s=>io.observe(s));
+}
+
+/* ── READ-MORE ── */
+document.querySelectorAll('.rm-btn').forEach(btn=>{
+  btn.addEventListener('click',()=>{
+    const body=btn.nextElementSibling;
+    const open=body.classList.toggle('open');
+    btn.classList.toggle('open',open);
+    btn.setAttribute('aria-expanded',open);
+    btn.childNodes[0].textContent=open?'Read less ':'Read more ';
   });
+});
 
-  document.querySelectorAll(".stop-step").forEach(step => io.observe(step));
+/* ── TIMELINE SVG + CLICK-TO-JUMP ──
+   Key fix: use SVG viewBox coords (0-900) not screen clientX.
+   We read the SVG's bounding rect and map screen → viewBox space.
+*/
+const NS='http://www.w3.org/2000/svg';
+function mk(tag,attrs){const e=document.createElementNS(NS,tag);Object.entries(attrs).forEach(([k,v])=>e.setAttribute(k,v));return e}
+
+const TL_VB={W:900,L:44,R:856,mn:1888,mx:1970};
+function xOfYr(yr){return TL_VB.L+((yr-TL_VB.mn)/(TL_VB.mx-TL_VB.mn))*(TL_VB.R-TL_VB.L)}
+
+// Convert screen clientX → timeline year using live bounding rect of SVG
+function screenXtoYear(svg,clientX){
+  const rect=svg.getBoundingClientRect();
+  if(rect.width===0) return TL_VB.mn;
+  // Map clientX → 0..900 viewBox x
+  const vbX=(clientX-rect.left)/rect.width*TL_VB.W;
+  // Map 0..900 vbX → year
+  const yr=TL_VB.mn+(vbX-TL_VB.L)/(TL_VB.R-TL_VB.L)*(TL_VB.mx-TL_VB.mn);
+  return Math.round(Math.max(TL_VB.mn,Math.min(TL_VB.mx,yr)));
 }
 
-/* ─── TIMELINE ───────────────────────────────────── */
-function renderTimeline(activeYear, activeColor) {
-  const svg = document.getElementById("tl-svg");
-  svg.innerHTML = "";
-  const W = 900, H = 56, y = 28, left = 40, right = 860;
-  const minY = 1888, maxY = 1970;
-  const xOf = yr => left + ((yr - minY) / (maxY - minY)) * (right - left);
-  const ns = "http://www.w3.org/2000/svg";
+function jumpToYear(yr){
+  // Find the stop-step whose year is numerically closest
+  let best=null, bestD=Infinity;
+  stepNodes.forEach(step=>{
+    const rawYr=step.dataset.year||'';
+    // Extract first 4-digit number from year string like "1903–1907" or "28 February 1928"
+    const m=rawYr.match(/\d{4}/);
+    if(!m) return;
+    const d=Math.abs(parseInt(m[0])-yr);
+    if(d<bestD){bestD=d;best=step}
+  });
+  if(!best) return;
+  // Scroll then activate
+  best.scrollIntoView({behavior:'smooth',block:'center'});
+  // Small delay so scroll has started before map flies
+  setTimeout(()=>activateStep(best),120);
+  // Show label feedback
+  const lbl=document.getElementById('tl-label');
+  if(lbl){
+    lbl.textContent=`→ ${yr}`;
+    setTimeout(()=>lbl.textContent='',1600);
+  }
+}
 
-  // axis
-  const axis = document.createElementNS(ns, "line");
-  Object.assign(axis, {}); 
-  axis.setAttribute("x1", left); axis.setAttribute("x2", right);
-  axis.setAttribute("y1", y); axis.setAttribute("y2", y);
-  axis.setAttribute("stroke", "rgba(255,255,255,0.18)"); axis.setAttribute("stroke-width","1");
-  svg.appendChild(axis);
+let tlInteractionBound=false;
+function renderTL(yr,color){
+  const svg=document.getElementById('tl-svg');
+  svg.innerHTML='';
+  const H=56, y=28;
+  const isMobile=window.innerWidth<520;
+  const fsize=isMobile?'7.5':'9.5';
 
-  // ticks
-  [1890,1900,1910,1920,1930,1940,1950,1960,1970].forEach(yr => {
-    const x = xOf(yr);
-    const t = document.createElementNS(ns, "line");
-    t.setAttribute("x1",x); t.setAttribute("x2",x);
-    t.setAttribute("y1",y-8); t.setAttribute("y2",y+8);
-    t.setAttribute("stroke","rgba(255,255,255,0.12)"); t.setAttribute("stroke-width","1");
-    svg.appendChild(t);
+  svg.appendChild(mk('rect',{x:0,y:0,width:TL_VB.W,height:H,fill:'transparent'}));
+  svg.appendChild(mk('line',{x1:TL_VB.L,x2:TL_VB.R,y1:y,y2:y,stroke:'rgba(255,255,255,.12)','stroke-width':'1'}));
 
-    const lbl = document.createElementNS(ns, "text");
-    lbl.setAttribute("x", x); lbl.setAttribute("y", H-2);
-    lbl.setAttribute("text-anchor","middle");
-    lbl.setAttribute("fill","rgba(255,255,255,0.3)");
-    lbl.setAttribute("font-size","9");
-    lbl.setAttribute("font-family","IBM Plex Mono, monospace");
-    lbl.textContent = yr;
-    svg.appendChild(lbl);
+  // Decade ticks
+  const decades=isMobile?[1900,1920,1940,1960]:[1890,1900,1910,1920,1930,1940,1950,1960,1970];
+  decades.forEach(v=>{
+    const x=xOfYr(v);
+    svg.appendChild(mk('line',{x1:x,x2:x,y1:y-7,y2:y+7,stroke:'rgba(255,255,255,.1)','stroke-width':'1'}));
+    const t=mk('text',{x,y:H-2,'text-anchor':'middle',fill:'rgba(255,255,255,.3)','font-size':fsize,'font-family':'IBM Plex Mono,monospace','font-weight':'500'});
+    t.textContent=v; svg.appendChild(t);
   });
 
   // Chapter spans
-  CHAPTERS.forEach(ch => {
-    const x1 = xOf(ch.years[0]), x2 = xOf(ch.years[1]);
-    const bar = document.createElementNS(ns, "rect");
-    bar.setAttribute("x", x1); bar.setAttribute("y", y-4);
-    bar.setAttribute("width", Math.max(x2-x1, 6)); bar.setAttribute("height", 8);
-    bar.setAttribute("rx", 3);
-    bar.setAttribute("fill", ch.color); bar.setAttribute("opacity","0.45");
-    svg.appendChild(bar);
+  CHS.forEach(ch=>{
+    const x1=xOfYr(ch.years[0]), x2=Math.max(xOfYr(ch.years[1]),x1+4);
+    svg.appendChild(mk('rect',{x:x1,y:y-5,width:x2-x1,height:10,rx:3,fill:ch.color,opacity:'.35'}));
   });
 
-  // Active year marker
-  if (activeYear) {
-    const yr = parseInt(activeYear);
-    const ax = xOf(yr);
-    const needle = document.createElementNS(ns, "line");
-    needle.setAttribute("x1",ax); needle.setAttribute("x2",ax);
-    needle.setAttribute("y1",y-18); needle.setAttribute("y2",y+18);
-    needle.setAttribute("stroke", activeColor || "#f0b840");
-    needle.setAttribute("stroke-width","2");
-    svg.appendChild(needle);
+  // World-event diamonds
+  WORLD_EVENTS.forEach(we=>{
+    const x=xOfYr(we.year);
+    const g=mk('g',{'data-label':we.label,'data-year':String(we.year),class:'we-marker',style:'cursor:pointer'});
+    g.appendChild(mk('line',{x1:x,x2:x,y1:y-14,y2:y+1,stroke:we.color,'stroke-width':'1.2','stroke-dasharray':'2 1.5'}));
+    g.appendChild(mk('polygon',{points:`${x},${y-19} ${x+3.5},${y-15} ${x},${y-11} ${x-3.5},${y-15}`,fill:we.color,opacity:'.85'}));
+    // invisible wider hit area
+    g.appendChild(mk('rect',{x:x-8,y:y-22,width:16,height:20,fill:'transparent'}));
+    svg.appendChild(g);
+  });
 
-    const dot = document.createElementNS(ns, "circle");
-    dot.setAttribute("cx",ax); dot.setAttribute("cy",y);
-    dot.setAttribute("r","5");
-    dot.setAttribute("fill", activeColor || "#f0b840");
-    dot.setAttribute("stroke","rgba(255,255,255,0.8)");
-    dot.setAttribute("stroke-width","1.5");
-    svg.appendChild(dot);
-
-    const ylbl = document.createElementNS(ns, "text");
-    ylbl.setAttribute("x",ax); ylbl.setAttribute("y",y-22);
-    ylbl.setAttribute("text-anchor","middle");
-    ylbl.setAttribute("fill", activeColor || "#f0b840");
-    ylbl.setAttribute("font-size","10");
-    ylbl.setAttribute("font-family","IBM Plex Mono, monospace");
-    ylbl.setAttribute("font-weight","500");
-    ylbl.textContent = yr;
-    svg.appendChild(ylbl);
+  // Active needle
+  if(yr){
+    const v=parseInt(String(yr).match(/\d{4}/)?.[0])||0;
+    if(v){
+      const ax=xOfYr(v);
+      const g=mk('g',{id:'tl-needle'});
+      g.appendChild(mk('line',{x1:ax,x2:ax,y1:y-21,y2:y+14,stroke:color,'stroke-width':'2.5','stroke-linecap':'round'}));
+      g.appendChild(mk('circle',{cx:ax,cy:y,r:'6',fill:color,stroke:'rgba(255,255,255,.8)','stroke-width':'1.8'}));
+      const yt=mk('text',{x:ax,y:y-24,'text-anchor':'middle',fill:color,'font-size':isMobile?'8':'10','font-family':'IBM Plex Mono,monospace','font-weight':'700'});
+      yt.textContent=v; g.appendChild(yt);
+      svg.appendChild(g);
+    }
   }
 
-  document.getElementById("timeline-strip").classList.remove("hidden");
+  document.getElementById('tl-strip').classList.remove('hidden');
+
+  // Bind interaction only once (svg is re-rendered but listeners on strip element persist)
+  if(!tlInteractionBound){
+    tlInteractionBound=true;
+    const strip=document.getElementById('tl-strip');
+    const weTip=document.getElementById('we-tip');
+    let weTO=null, dragging=false;
+
+    // Use the STRIP element (which is fixed-size) for coordinate mapping
+    function getYearFromEvent(clientX){
+      // Get tl-svg bounding rect (inside the strip)
+      const svgEl=document.getElementById('tl-svg');
+      return screenXtoYear(svgEl,clientX);
+    }
+
+    function handleJump(clientX, e){
+      // Check if we hit a world-event marker via composedPath
+      const path=e?.composedPath?.()||[];
+      const hitWE=path.some(el=>el.classList&&el.classList.contains('we-marker'));
+      if(hitWE){
+        const g=path.find(el=>el.classList&&el.classList.contains('we-marker'));
+        if(g) jumpToYear(+g.dataset.year);
+        return;
+      }
+      jumpToYear(getYearFromEvent(clientX));
+    }
+
+    strip.addEventListener('click',e=>{
+      handleJump(e.clientX,e);
+    });
+
+    strip.addEventListener('mousedown',()=>{dragging=true});
+    window.addEventListener('mouseup',()=>{dragging=false});
+    strip.addEventListener('mousemove',e=>{if(dragging)jumpToYear(getYearFromEvent(e.clientX))});
+
+    strip.addEventListener('touchstart',()=>{dragging=true},{passive:true});
+    window.addEventListener('touchend',()=>{dragging=false});
+    strip.addEventListener('touchmove',e=>{
+      if(dragging) jumpToYear(getYearFromEvent(e.touches[0].clientX));
+    },{passive:true});
+
+    // World-event hover tooltips
+    strip.addEventListener('mouseover',e=>{
+      const g=e.target.closest('.we-marker');
+      if(!g) return;
+      if(weTO){clearTimeout(weTO);weTO=null}
+      weTip.textContent=`${g.dataset.year} — ${g.dataset.label}`;
+      weTip.classList.add('on');
+    });
+    strip.addEventListener('mouseout',e=>{
+      if(!e.target.closest('.we-marker')) return;
+      weTO=setTimeout(()=>weTip.classList.remove('on'),700);
+    });
+  }
 }
 
-/* ─── HERO SCROLL HIDE ───────────────────────────── */
-const hero = document.getElementById("hero");
-const heroObserver = new IntersectionObserver(entries => {
-  const strip = document.getElementById("timeline-strip");
-  if (entries[0].isIntersecting) {
-    strip.classList.add("hidden");
-    document.getElementById("location-ticker").classList.remove("visible");
+/* ── HERO VISIBILITY — hides markers when hero is in view ── */
+const heroEl=document.getElementById('hero');
+const heroObs=new IntersectionObserver(entries=>{
+  const vis=entries[0].isIntersecting;
+  document.body.classList.toggle('hero-visible',vis);
+  if(vis){
+    document.getElementById('tl-strip').classList.add('hidden');
+    document.getElementById('ticker').classList.remove('on');
   }
-}, { threshold: 0.1 });
-heroObserver.observe(hero);
+},{threshold:0.05});
+heroObs.observe(heroEl);
 
-/* ─── INIT ───────────────────────────────────────── */
-window.addEventListener("load", () => {
-  buildAllMarkersAndRoutes();
-  initObserver();
-});
+/* ── INIT ── */
+window.addEventListener('load',()=>{buildAll();initIO()});
 </script>
+
+<!-- TIMELINE SLIDER -->
+
+  <div id="timeline-years">
+    <span style="left: 0%">1890</span>
+    <span style="left: 10%">1900</span>
+    <span style="left: 25%">1910</span>
+    <span style="left: 33%">1920</span>
+    <span style="left: 41%">1930</span>
+    <span style="left: 49%">1940</span>
+    <span style="left: 57%">1950</span>
+    <span style="left: 70%">1960</span>
+    <span style="left: 100%">1970</span>
+  </div>
+  <div id="timeline-chapters">
+    <span style="left: 5%">Early Years</span>
+    <span style="left: 28%">Europe Voyage</span>
+    <span style="left: 45%">Nobel Prize</span>
+    <span style="left: 65%">IISc Bangalore</span>
+    <span style="left: 88%">Final Lectures</span>
+  </div>
+</div>
+
+<div id="timeline-content">
+  <div id="timeline-text">Drag the timeline to explore C.V. Raman's life and the world events around him.</div>
+</div>
+
+<!-- CLEAN TIMELINE V2 -->
+
+    <div class="timeline-tick" style="left: 12.5%"><div class="timeline-tooltip">1900</div></div>
+    <div class="timeline-tick major" style="left: 25%">
+      <div class="timeline-tooltip">1910</div>
+    </div>
+    <div class="timeline-tick event" style="left: 35%">
+      <div class="timeline-tooltip">1918: WWI ends, Spanish Flu</div>
+    </div>
+    <div class="timeline-tick major" style="left: 37.5%">
+      <div class="timeline-tooltip">1920</div>
+    </div>
+    <div class="timeline-tick event" style="left: 48.75%">
+      <div class="timeline-tooltip">1929: Knighted</div>
+    </div>
+    <div class="timeline-tick major" style="left: 50%">
+      <div class="timeline-tooltip">1930: Nobel Prize</div>
+    </div>
+    <div class="timeline-tick" style="left: 62.5%"><div class="timeline-tooltip">1940</div></div>
+    <div class="timeline-tick event" style="left: 68.75%">
+      <div class="timeline-tooltip">1945: WWII ends</div>
+    </div>
+    <div class="timeline-tick event" style="left: 71.25%">
+      <div class="timeline-tooltip">1947: Indian Independence</div>
+    </div>
+    <div class="timeline-tick major" style="left: 75%">
+      <div class="timeline-tooltip">1950</div>
+    </div>
+    <div class="timeline-tick" style="left: 87.5%"><div class="timeline-tooltip">1960</div></div>
+    <div class="timeline-tick major" style="left: 100%">
+      <div class="timeline-tooltip">1970</div>
+    </div>
+    
+    <span class="timeline-year major" style="left: 0%">1890</span>
+    <span class="timeline-year" style="left: 25%">1910</span>
+    <span class="timeline-year major" style="left: 50%">1930</span>
+    <span class="timeline-year" style="left: 75%">1950</span>
+    <span class="timeline-year major" style="left: 100%">1970</span>
+    
+    <div id="timeline-handle"></div>
+  </div>
+  
+  <div id="timeline-chapters">
+    <div class="chapter-block" style="left: 0%; width: 25%; background: var(--c-v)">Early Years</div>
+    <div class="chapter-block" style="left: 25%; width: 20%; background: var(--c-b)">Europe Voyage</div>
+    <div class="chapter-block" style="left: 45%; width: 15%; background: var(--c-g)">Nobel Prize</div>
+    <div class="chapter-block" style="left: 60%; width: 25%; background: var(--c-o)">IISc Bangalore</div>
+    <div class="chapter-block" style="left: 85%; width: 15%; background: var(--c-r)">Final Lectures</div>
+  </div>
+</div>
+
+<div id="timeline-content">
+  <div id="timeline-text"></div>
+</div>
+
+<script>
+
+
+
+
+
+
+const timelineData = [
+  {year: 1888, era: 'Early Years', text: 'Chandrasekhara Venkata Raman born in Tiruchirappalli.', world: ''},
+  {year: 1907, era: 'Early Years', text: 'At 18, publishes first research paper while in Indian Finance Department.', world: ''},
+  {year: 1917, era: 'Calcutta Years', text: 'Joins Calcutta University as Palit Professor of Physics.', world: ''},
+  {year: 1918, era: 'Europe Voyage', text: 'Begins studying light scattering in liquids.', world: 'WWI ends. Spanish Flu pandemic kills millions.'},
+  {year: 1921, era: 'Europe Voyage', text: 'Voyage to Europe. Questions Rayleigh’s explanation for the sea’s blue color.', world: ''},
+  {year: 1928, era: 'Discovery', text: 'Feb 28: Observes the Raman Effect with K.S. Krishnan.', world: ''},
+  {year: 1929, era: 'Nobel Prize', text: 'Knighted. Global recognition for his discovery.', world: 'Wall Street Crash. Great Depression begins.'},
+  {year: 1930, era: 'Nobel Prize', text: 'Dec 10: Receives Nobel Prize in Physics. First Asian in sciences.', world: ''},
+  {year: 1933, era: 'IISc Bangalore', text: 'Becomes Director of Indian Institute of Science.', world: ''},
+  {year: 1945, era: 'IISc Bangalore', text: 'Establishes Raman Research Institute.', world: 'WWII ends. Atomic age begins.'},
+  {year: 1947, era: 'IISc Bangalore', text: 'Continues research on crystal physics and optics.', world: 'India gains independence from British rule.'},
+  {year: 1970, era: 'Final Lectures', text: 'Nov 21: Passes away in Bangalore.', world: ''}
+];
+
+const track = document.getElementById('timeline-track');
+const handle = document.getElementById('timeline-handle');
+const textBox = document.getElementById('timeline-text');
+const chapterBlocks = document.querySelectorAll('.chapter-block');
+let dragging = false;
+let hideTimeout = null;
+
+function yearToPercent(year){
+  return ((year - 1890) / 80) * 100;
+}
+
+function percentToYear(pct){
+  return Math.round(1890 + (pct / 100) * 80);
+}
+
+function showTextBox(){
+  textBox.classList.add('show');
+  clearTimeout(hideTimeout);
+  hideTimeout = setTimeout(() => {
+    textBox.classList.remove('show');
+  }, 3000);
+}
+
+function updateTimeline(year, showBox = false){
+  const pct = yearToPercent(year);
+  handle.style.left = pct + '%';
+  
+  let closest = timelineData.reduce((a,b) => Math.abs(b.year - year) < Math.abs(a.year - year) ? b : a);
+  
+  let html = `<span class="era">${closest.era} · ${closest.year}</span>${closest.text}`;
+  if(closest.world) html += `<div class="world">World: ${closest.world}</div>`;
+  textBox.innerHTML = html;
+  
+  if(showBox) showTextBox();
+  
+  chapterBlocks.forEach(block => {
+    const blockText = block.textContent.trim();
+    block.classList.toggle('active', blockText === closest.era);
+  });
+}
+
+function handleDrag(e){
+  const rect = track.getBoundingClientRect();
+  let x = (e.touches ? e.touches[0].clientX : e.clientX) - rect.left;
+  x = Math.max(0, Math.min(x, rect.width));
+  const year = percentToYear((x / rect.width) * 100);
+  updateTimeline(year, true);
+}
+
+track.addEventListener('mousedown', e => {dragging = true; handleDrag(e);});
+document.addEventListener('mousemove', e => {if(dragging) handleDrag(e);});
+document.addEventListener('mouseup', () => {dragging = false;});
+track.addEventListener('touchstart', e => {dragging = true; handleDrag(e);});
+document.addEventListener('touchmove', e => {if(dragging) handleDrag(e);});
+document.addEventListener('touchend', () => {dragging = false;});
+
+chapterBlocks.forEach(block => {
+  block.addEventListener('click', () => {
+    const era = block.textContent.trim();
+    const event = timelineData.find(d => d.era === era);
+    if(event) updateTimeline(event.year, true);
+  });
+});
+
+// Initialize position without showing box - footer always visible now
+updateTimeline(1929, false);
+
+
+
+
+
+
+</script>
+
+<!-- FIXED TIMELINE FOOTER -->
+
+      <div class="timeline-tick" style="left: 12.5%"><div class="timeline-tooltip">1900</div></div>
+      <div class="timeline-tick major" style="left: 25%"><div class="timeline-tooltip">1910</div></div>
+      <div class="timeline-tick event" style="left: 35%"><div class="timeline-tooltip">1918: WWI ends, Spanish Flu</div></div>
+      <div class="timeline-tick major" style="left: 37.5%"><div class="timeline-tooltip">1920</div></div>
+      <div class="timeline-tick event" style="left: 48.75%"><div class="timeline-tooltip">1929: Knighted</div></div>
+      <div class="timeline-tick major" style="left: 50%"><div class="timeline-tooltip">1930: Nobel Prize</div></div>
+      <div class="timeline-tick" style="left: 62.5%"><div class="timeline-tooltip">1940</div></div>
+      <div class="timeline-tick event" style="left: 68.75%"><div class="timeline-tooltip">1945: WWII ends</div></div>
+      <div class="timeline-tick event" style="left: 71.25%"><div class="timeline-tooltip">1947: Indian Independence</div></div>
+      <div class="timeline-tick major" style="left: 75%"><div class="timeline-tooltip">1950</div></div>
+      <div class="timeline-tick" style="left: 87.5%"><div class="timeline-tooltip">1960</div></div>
+      <div class="timeline-tick major" style="left: 100%"><div class="timeline-tooltip">1970</div></div>
+      
+      <span class="timeline-year major" style="left: 0%">1890</span>
+      <span class="timeline-year" style="left: 25%">1910</span>
+      <span class="timeline-year major" style="left: 50%">1930</span>
+      <span class="timeline-year" style="left: 75%">1950</span>
+      <span class="timeline-year major" style="left: 100%">1970</span>
+      
+      <div id="timeline-handle"></div>
+    </div>
+    
+    <div id="timeline-chapters">
+      <div class="chapter-block" style="left: 0%; width: 25%; background: var(--c-v)">Early Years</div>
+      <div class="chapter-block" style="left: 25%; width: 20%; background: var(--c-b)">Europe Voyage</div>
+      <div class="chapter-block" style="left: 45%; width: 15%; background: var(--c-g)">Nobel Prize</div>
+      <div class="chapter-block" style="left: 60%; width: 25%; background: var(--c-o)">IISc Bangalore</div>
+      <div class="chapter-block" style="left: 85%; width: 15%; background: var(--c-r)">Final Lectures</div>
+    </div>
+  </div>
+</div>
+
+<div id="timeline-content">
+  <div id="timeline-text"></div>
+</div>
+
+
+<!-- NARROW FOOTER TIMELINE -->
+<div id="timeline-wrap">
+  <div class="timeline-container">
+    <div id="timeline-track">
+      <!-- World Events - red dots -->
+      <div class="world-event" style="left: 35%" data-event="WWI">
+        <div class="timeline-tooltip">1918: WWI ends</div>
+      </div>
+      <div class="world-event" style="left: 36.5%" data-event="Flu">
+        <div class="timeline-tooltip">1918: Spanish Flu pandemic</div>
+      </div>
+      <div class="world-event" style="left: 48.75%" data-event="Depression">
+        <div class="timeline-tooltip">1929: Wall Street Crash</div>
+      </div>
+      <div class="world-event" style="left: 68.75%" data-event="WWII">
+        <div class="timeline-tooltip">1945: WWII ends</div>
+      </div>
+      <div class="world-event" style="left: 71.25%" data-event="Independence">
+        <div class="timeline-tooltip">1947: Indian Independence</div>
+      </div>
+      
+      <!-- Raman Events - yellow diamonds -->
+      <div class="raman-event" style="left: 0%" data-event="Birth">
+        <div class="timeline-tooltip">1888: Born in Tiruchirappalli</div>
+      </div>
+      <div class="raman-event" style="left: 21.25%" data-event="First Paper">
+        <div class="timeline-tooltip">1907: First research paper at 18</div>
+      </div>
+      <div class="raman-event" style="left: 35%" data-event="Calcutta">
+        <div class="timeline-tooltip">1917: Joins Calcutta University</div>
+      </div>
+      <div class="raman-event" style="left: 47.5%" data-event="Discovery">
+        <div class="timeline-tooltip">1928: Discovers Raman Effect</div>
+      </div>
+      <div class="raman-event" style="left: 50%" data-event="Nobel">
+        <div class="timeline-tooltip">1930: Nobel Prize in Physics</div>
+      </div>
+      <div class="raman-event" style="left: 53.75%" data-event="IISc">
+        <div class="timeline-tooltip">1933: Director, IISc Bangalore</div>
+      </div>
+      <div class="raman-event" style="left: 100%" data-event="Death">
+        <div class="timeline-tooltip">1970: Passes away in Bangalore</div>
+      </div>
+      
+      <span class="timeline-year major" style="left: 0%">1890</span>
+      <span class="timeline-year" style="left: 25%">1910</span>
+      <span class="timeline-year major" style="left: 50%">1930</span>
+      <span class="timeline-year" style="left: 75%">1950</span>
+      <span class="timeline-year major" style="left: 100%">1970</span>
+      
+      <div id="timeline-handle"></div>
+    </div>
+    
+    <div id="timeline-chapters">
+      <div class="chapter-block" style="left: 0%; width: 25%; background: var(--c-v)">Early Years</div>
+      <div class="chapter-block" style="left: 25%; width: 20%; background: var(--c-b)">Europe Voyage</div>
+      <div class="chapter-block" style="left: 45%; width: 15%; background: var(--c-g)">Nobel Prize</div>
+      <div class="chapter-block" style="left: 60%; width: 25%; background: var(--c-o)">IISc Bangalore</div>
+      <div class="chapter-block" style="left: 85%; width: 15%; background: var(--c-r)">Final Lectures</div>
+    </div>
+  </div>
+</div>
+
+<div id="timeline-content">
+  <div id="timeline-text"></div>
+</div>
+
 </body>
 </html>
